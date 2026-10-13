@@ -5,8 +5,9 @@ import { Activity } from '../../data/activities';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { colors, radii, shadows, typography } from '../../theme';
 import { Text } from '../LocalizedText';
+import { PreferencesSummary } from '../ActivityChoices';
 
-export function MatchHeader({ distance = 'Trong 5 km', onBack, onFilter }: { distance?: string; onBack: () => void; onFilter: () => void }) {
+export function MatchHeader({ distance = 'Chưa có vị trí', onBack, onFilter }: { distance?: string; onBack: () => void; onFilter: () => void }) {
   return (
     <View>
       <View style={styles.header}>
@@ -15,7 +16,7 @@ export function MatchHeader({ distance = 'Trong 5 km', onBack, onFilter }: { dis
         <Pressable accessibilityLabel="Mở bộ lọc" onPress={onFilter} style={styles.headerButton}><Ionicons color={colors.primary} name="options-outline" size={23} /></Pressable>
       </View>
       <View style={styles.contextRow}>
-        <ContextChip icon="location-outline" label="Quận 1, TP.HCM" />
+        <ContextChip icon="location-outline" label="Khám phá hoạt động" />
         <ContextChip icon="navigate" label={distance} />
       </View>
     </View>
@@ -53,6 +54,7 @@ export function ActivityMatchCard({ activity, canUndo, onMore, onUndo }: { activ
 
       <View style={styles.details}>
         <DetailSection title="Giới thiệu"><Text style={styles.body}>{activity.description}</Text></DetailSection>
+        <PreferencesSummary value={activity.participantPreferences} />
         <DetailSection title="Host hoạt động">
           <View style={styles.hostDetail}>
             <View style={styles.hostAvatarLarge}><Text style={styles.hostInitialLarge}>{activity.host.charAt(0)}</Text></View>

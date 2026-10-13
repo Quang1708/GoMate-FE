@@ -7,7 +7,8 @@ import { Text } from '../components/LocalizedText';
 import { GradientButton } from '../components/GradientButton';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Activity } from '../data/activities';
-import { communityMembers } from '../data/people';
+import { MembersPanel } from './MembershipViews';
+import { getSession } from '../services/api';
 import { colors, layout, radii } from '../theme';
 
 type GroupTab = 'chat' | 'plan' | 'expenses' | 'members';
@@ -20,7 +21,7 @@ const tabs: { id: GroupTab; label: string; icon: IconName }[] = [
   { id: 'members', label: 'Thành viên', icon: 'people-outline' },
 ];
 
-export function GroupScreen({ activity, onBack, onStart }: { activity: Activity; onBack: () => void; onStart: () => void }) {
+export function GroupScreen({ activity, onBack, onStart, onLeft }: { activity: Activity; onBack: () => void; onStart: () => void; onLeft: () => void }) {
   const [tab, setTab] = useState<GroupTab>('chat');
   const [message, setMessage] = useState('');
   const [sentMessages, setSentMessages] = useState<string[]>([]);
@@ -44,8 +45,8 @@ export function GroupScreen({ activity, onBack, onStart }: { activity: Activity;
           {tab === 'chat' && <ChatTab sentMessages={sentMessages} />}
           {tab === 'plan' && <PlanTab activity={activity} checked={checked} onToggle={(index) => setChecked((current) => { const next = new Set(current); if (next.has(index)) next.delete(index); else next.add(index); return next; })} />}
           {tab === 'expenses' && <ExpensesTab />}
-          {tab === 'members' && <MembersTab host={activity.host} />}
-          <GradientButton label="Bắt đầu hoạt động" onPress={onStart} style={styles.startButton} trailing={<Ionicons color={colors.white} name="play" size={18} />} />
+          {tab === 'members' && <MembersPanel activity={activity} onLeft={onLeft} />}
+          {activity.hostId === getSession()?.user.id && <GradientButton label="Bắt đầu hoạt động" onPress={onStart} style={styles.startButton} trailing={<Ionicons color={colors.white} name="play" size={18} />} />}
         </View>
       </ScrollView>
       {tab === 'chat' && <View style={styles.composer}><TextInput onChangeText={setMessage} placeholder="Nhắn cho cả nhóm..." placeholderTextColor={colors.textMuted} style={styles.input} value={message} /><Pressable onPress={send} style={styles.send}><Ionicons color={colors.white} name="send" size={18} /></Pressable></View>}
@@ -72,10 +73,6 @@ function ExpensesTab() {
 
 function Expense({ name, amount, paid }: { name: string; amount: string; paid: string }) {
   return <View style={styles.expenseRow}><View style={styles.expenseIcon}><Ionicons color={colors.primary} name="receipt-outline" size={18} /></View><View style={styles.expenseCopy}><Text style={styles.expenseName}>{name}</Text><Text style={styles.expensePaid}>{paid}</Text></View><Text style={styles.expenseAmount}>{amount}</Text></View>;
-}
-
-function MembersTab({ host }: { host: string }) {
-  return <Card title={`Thành viên (${communityMembers.length + 1})`}><View style={styles.memberRow}><View style={styles.avatar}><Text style={styles.avatarText}>{host.charAt(0)}</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{host}</Text><Text style={styles.memberRole}>Host</Text></View><Ionicons color={colors.success} name="shield-checkmark" size={19} /></View>{communityMembers.map((member) => <View key={member.id} style={styles.memberRow}><View style={styles.avatar}><Text style={styles.avatarText}>{member.initial}</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRole}>{member.activitiesJoined} hoạt động đã tham gia</Text></View><Ionicons color={colors.textMuted} name="ellipsis-horizontal" size={19} /></View>)}</Card>;
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {

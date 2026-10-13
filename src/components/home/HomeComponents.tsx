@@ -1,6 +1,7 @@
 import { ComponentProps } from 'react';
 import { Image, ImageBackground, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useProfile } from '../../services/ProfileContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { Activity } from '../../data/activities';
@@ -22,6 +23,7 @@ export type HomeAction = {
 };
 
 export function HomeHeader({ activityCount, onCalendarPress, onNotificationsPress, showGreeting = true }: { activityCount: number; onCalendarPress: () => void; onNotificationsPress: () => void; showGreeting?: boolean }) {
+  const { profile } = useProfile();
   return (
     <View>
       <View style={styles.headerRow}>
@@ -31,7 +33,7 @@ export function HomeHeader({ activityCount, onCalendarPress, onNotificationsPres
           <Image source={require('../../assets/profile-avatar.png')} style={styles.avatar} />
         </View>
       </View>
-      {showGreeting && <><Text style={styles.greetingLabel}>Chào buổi sáng,</Text><Text style={styles.greetingName}>Minh 👋</Text><View style={styles.greetingMetaRow}><Text style={styles.greetingMeta}>{activityCount > 0 ? `Hôm nay bạn có ${activityCount} hoạt động` : 'Bạn chưa có hoạt động nào'}</Text>{activityCount > 0 && <Pressable onPress={onCalendarPress}><Text style={styles.calendarLink}>Xem lịch</Text></Pressable>}</View></>}
+      {showGreeting && <><Text style={styles.greetingLabel}>Xin chào,</Text><Text style={styles.greetingName}>{profile?.name || 'Bạn'} 👋</Text><View style={styles.greetingMetaRow}><Text style={styles.greetingMeta}>{activityCount > 0 ? `Bạn có ${activityCount} hoạt động sắp tới` : 'Bạn chưa có hoạt động nào'}</Text>{activityCount > 0 && <Pressable onPress={onCalendarPress}><Text style={styles.calendarLink}>Xem lịch</Text></Pressable>}</View></>}
     </View>
   );
 }

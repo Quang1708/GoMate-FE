@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { setUnauthorizedHandler } from './src/services/api';
 import { LanguageProvider } from './src/i18n/LanguageContext';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { MainApp } from './src/screens/MainApp';
@@ -15,6 +16,9 @@ type Screen = 'onboarding' | 'auth' | 'verify' | 'profile' | 'permissions' | 'ma
 export default function App() {
   const [screen, setScreen] = useState<Screen>('onboarding');
 
+  const [verificationEmail, setVerificationEmail] = useState('');
+  useEffect(() => { setUnauthorizedHandler(() => setScreen('auth')); return () => setUnauthorizedHandler(); }, []);
+
   return (
     <SafeAreaProvider>
       <LanguageProvider>
@@ -23,11 +27,11 @@ export default function App() {
         {screen === 'auth' && (
           <AuthScreen
             onLogin={() => setScreen('main')}
-            onRegister={() => setScreen('verify')}
+            onRegister={(email) => { setVerificationEmail(email); setScreen('verify'); }}
           />
         )}
         {screen === 'verify' && (
-          <VerifyEmailScreen onBack={() => setScreen('auth')} onVerified={() => setScreen('profile')} />
+          <VerifyEmailScreen email={verificationEmail} onBack={() => setScreen('auth')} onVerified={() => setScreen('main')} />
         )}
         {screen === 'profile' && (
           <ProfileScreen

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,23 +6,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLogo } from '../components/BrandLogo';
 import { FormField } from '../components/FormField';
 import { Text } from '../components/LocalizedText';
+import { login, post } from '../services/api';
 import { colors, control, layout, typography } from '../theme';
 
 type AuthStage = 'welcome' | 'login' | 'signup' | 'forgot' | 'reset' | 'success';
 
 type AuthScreenProps = {
   onLogin: () => void;
-  onRegister: () => void;
+  onRegister: (email: string) => void;
 };
 
 export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
   const [stage, setStage] = useState<AuthStage>('welcome');
-  const [name, setName] = useState('Noah Elhadedly');
-  const [email, setEmail] = useState('noah@gomate.app');
-  const [loginPassword, setLoginPassword] = useState('gomate2026');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('GoMate2026!');
-  const [confirmPassword, setConfirmPassword] = useState('GoMate2026!');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
+  const [error, setError] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const run = async (action: () => Promise<void>) => {
+    if (submitting.current) return;
+    submitting.current = true;
+    setBusy(true); setError('');
+    try { await action(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Yêu cầu thất bại'); }
+    finally { submitting.current = false; setBusy(false); }
+  };
+  const handleLogin = () => void run(async () => { await login(email, loginPassword); onLogin(); });
+  const handleRegister = () => void run(async () => { await post('/auth/register', { name, email: email.trim(), password: signupPassword }); onRegister(email.trim()); });
+  const unavailable = () => setError('Đăng nhập mạng xã hội chưa được cấu hình. Vui lòng dùng email.');
 
   if (stage === 'welcome') {
     return (
@@ -33,10 +49,10 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
             <Text style={styles.welcomeTitle}>Join GoMate</Text>
             <Text style={styles.welcomeSubtitle}>Create your account and find activities worth showing up for.</Text>
           </View>
-          <View style={styles.welcomeActions}>
+          <View style={styles.welcomeActions}>{error ? <Text style={{ color: colors.match }}>{error}</Text> : null}
             <MethodButton icon="mail-outline" label="Continue with email" onPress={() => setStage('signup')} primary />
-            <MethodButton icon="logo-google" label="Continue with Google" onPress={onRegister} />
-            <MethodButton icon="logo-apple" label="Continue with Apple" onPress={onRegister} />
+            <MethodButton icon="logo-google" label="Continue with Google" onPress={unavailable} />
+            <MethodButton icon="logo-apple" label="Continue with Apple" onPress={unavailable} />
             <InlinePrompt action="Log in" label="Already have an account?" onPress={() => setStage('login')} />
           </View>
           <Text style={styles.legal}>By continuing you agree to our Terms of Service and Privacy Policy.</Text>
@@ -69,7 +85,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <AuthHeader onBack={goBack} />
+        <AuthHeader onBack={goBack} />{error ? <Text style={{ color: colors.match, padding: 16 }}>{error}</Text> : null}
         <ScrollView bounces={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {stage === 'login' && (
             <View style={styles.screenPage}>
@@ -80,11 +96,11 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
                   <FormField label="Password" onChangeText={setLoginPassword} secureTextEntry value={loginPassword} />
                 </View>
                 <Pressable onPress={() => setStage('forgot')} style={styles.forgotLink}><Text style={styles.linkText}>Forgot password?</Text></Pressable>
-                <PrimaryButton label="Log in" onPress={onLogin} />
+                <PrimaryButton label={busy ? "Đang đăng nhập..." : "Log in"} onPress={handleLogin} />
                 <Text style={styles.orText}>or</Text>
                 <View style={styles.socialButtons}>
-                  <MethodButton icon="logo-google" label="Continue with Google" onPress={onLogin} />
-                  <MethodButton icon="logo-apple" label="Continue with Apple" onPress={onLogin} />
+                  <MethodButton icon="logo-google" label="Continue with Google" onPress={unavailable} />
+                  <MethodButton icon="logo-apple" label="Continue with Apple" onPress={unavailable} />
                 </View>
               </View>
               <InlinePrompt action="Sign up" label="New to GoMate?" onPress={() => setStage('signup')} />
@@ -98,12 +114,13 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
                 <FormField label="Full name" onChangeText={setName} value={name} />
                 <FormField keyboardType="email-address" label="Email" onChangeText={setEmail} value={email} />
                 <FormField label="Password" onChangeText={setSignupPassword} placeholder="Create a password" secureTextEntry value={signupPassword} />
+                <Text style={styles.requirementText}>Từ 6 ký tự; không bắt buộc chữ hoa, số hoặc ký tự đặc biệt.</Text>
               </View>
               <Pressable style={styles.consent}>
                 <View style={styles.checkbox}><Ionicons color={colors.white} name="checkmark" size={14} /></View>
                 <Text style={styles.consentText}>I agree to the Terms of Service and Privacy Policy.</Text>
               </Pressable>
-              <PrimaryButton label="Create account" onPress={onRegister} />
+              <PrimaryButton label={busy ? "Đang tạo tài khoản..." : "Create account"} onPress={handleRegister} />
               <View style={styles.signupPrompt}><InlinePrompt action="Log in" label="Already have an account?" onPress={() => setStage('login')} /></View>
             </View>
           )}
@@ -112,7 +129,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
             <View style={styles.formPage}>
               <AuthHeading subtitle="Enter the email linked to your account and we will send you a reset link." title="Forgot password?" />
               <View style={styles.forgotField}><FormField keyboardType="email-address" label="Email" onChangeText={setEmail} value={email} /></View>
-              <PrimaryButton label="Send reset link" onPress={() => setStage('reset')} />
+              <PrimaryButton label="Send reset link" onPress={() => void run(async () => { await post('/auth/forgot-password', { email: email.trim() }); setStage('reset'); })} />
               <Pressable onPress={() => setStage('login')} style={styles.backToLogin}><Text style={styles.mutedAction}>Back to log in</Text></Pressable>
             </View>
           )}
@@ -122,16 +139,17 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
               <View>
                 <AuthHeading subtitle="Your new password must be different from previous ones." title="Create new password" />
                 <View style={styles.fields}>
+                  <FormField label="Mã xác nhận 6 số" keyboardType="number-pad" value={resetCode} onChangeText={setResetCode} />
                   <FormField label="New password" onChangeText={setNewPassword} secureTextEntry value={newPassword} />
                   <FormField label="Confirm password" onChangeText={setConfirmPassword} secureTextEntry value={confirmPassword} />
                 </View>
                 <View style={styles.requirements}>
-                  <Requirement label="At least 8 characters" valid />
-                  <Requirement label="One uppercase letter" valid />
-                  <Requirement label="One number or symbol" />
+                  <Requirement label="Từ 6 ký tự" valid={newPassword.length >= 6} />
+
+
                 </View>
               </View>
-              <PrimaryButton label="Reset password" onPress={() => setStage('success')} />
+              <PrimaryButton label="Reset password" onPress={() => void run(async () => { if (newPassword !== confirmPassword) throw new Error('Mật khẩu xác nhận không khớp'); await post('/auth/reset-password', { email: email.trim(), code: resetCode, newPassword }); setStage('success'); })} />
             </View>
           )}
         </ScrollView>

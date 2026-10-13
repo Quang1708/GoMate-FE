@@ -12,9 +12,10 @@ import { Text } from '../components/LocalizedText';
 type SheetName = 'more' | 'report' | 'safety' | 'undo' | 'notInterested' | null;
 
 type MatchScreenProps = {
+  error?: string;
   activityItems?: Activity[];
   onFilterPress: () => void;
-  onMatched?: (activity: Activity) => void;
+  onMatched?: (activity: Activity) => Promise<boolean>;
   onBack: () => void;
   state?: 'ready' | 'loading' | 'location-required' | 'network-error' | 'activity-unavailable';
 };
@@ -28,7 +29,7 @@ function isHorizontalGesture(dx: number, dy: number) {
   return Math.abs(dx) > HORIZONTAL_INTENT_DISTANCE && Math.abs(dx) > Math.abs(dy) * HORIZONTAL_INTENT_RATIO;
 }
 
-export function MatchScreen({ activityItems = activities, onFilterPress, onMatched, onBack, state = 'ready' }: MatchScreenProps) {
+export function MatchScreen({ error, activityItems = activities, onFilterPress, onMatched, onBack, state = 'ready' }: MatchScreenProps) {
   const { width } = useWindowDimensions();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastSkippedIndex, setLastSkippedIndex] = useState<number | null>(null);
@@ -53,9 +54,9 @@ export function MatchScreen({ activityItems = activities, onFilterPress, onMatch
     setSheet(null);
   }, [currentIndex]);
 
-  const requestCurrent = useCallback(() => {
+  const requestCurrent = useCallback(async () => {
     if (!currentActivity) return;
-    onMatched?.(currentActivity);
+    if (!onMatched || !await onMatched(currentActivity)) return;
     setCurrentIndex((current) => current + 1);
     setRequestToast(true);
     setSheet(null);
@@ -69,15 +70,15 @@ export function MatchScreen({ activityItems = activities, onFilterPress, onMatch
       duration: 210,
       toValue: { x: direction === 'right' ? width * 1.25 : -width * 1.25, y: 4 },
       useNativeDriver: true,
-    }).start(({ finished }) => {
+    }).start(async ({ finished }) => {
       if (!finished) {
         setIsAnimating(false);
         return;
       }
       position.setValue({ x: 0, y: 0 });
-      setIsAnimating(false);
       if (direction === 'left') skipCurrent();
-      else requestCurrent();
+      else await requestCurrent();
+      setIsAnimating(false);
     });
   }, [isAnimating, position, requestCurrent, skipCurrent, width]);
 
@@ -147,6 +148,7 @@ export function MatchScreen({ activityItems = activities, onFilterPress, onMatch
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.page}>
         <MatchHeader onBack={onBack} onFilter={onFilterPress} />
+        {error ? <Text style={{ color: colors.danger, padding: 14 }}>{error}</Text> : null}
         <View {...panResponder.panHandlers} style={styles.deck}>
           <ScrollView contentContainerStyle={styles.scrollContent} directionalLockEnabled scrollEnabled={!isSwiping} showsVerticalScrollIndicator={false}>
             <Animated.View style={{ transform: [...position.getTranslateTransform(), { rotate }] }}>

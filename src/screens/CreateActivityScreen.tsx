@@ -1,13 +1,16 @@
-import { ComponentProps, useState } from 'react';
+import { ComponentProps, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
+import { DateField, DateTimeField, TimeField } from '../components/DateTimeField';
+import { CreateGroupFields } from '../components/CreateGroupFields';
+import { emptyPreferences, PreferencesSummary } from '../components/ActivityChoices';
 import { FormField } from '../components/FormField';
 import { GradientButton } from '../components/GradientButton';
 import { Text } from '../components/LocalizedText';
 import { activityCategories, activityLocations, provinces } from '../data/activityOptions';
-import { ActivityDraft, ApprovalRule, FundingMode, publishActivityDraft } from '../services/activityService';
+import { ActivityDraft, ApprovalRule, FundingMode, publishActivityDraft, validateActivityDraft } from '../services/activityService';
 import { colors, layout, radii } from '../theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -26,10 +29,10 @@ function createInitialDraft(): ActivityDraft {
     name: '', category: activityCategories[0], description: '', photos: [],
     date: '', endDate: '', startTime: '09:00', endTime: '11:00', registrationDeadline: '', scheduleNote: '',
     province: provinces[0], district: activityLocations[provinces[0]][0], address: '', meetingPoint: '',
-    maxParticipants: '6', requirements: '',
+    minParticipants: '2', maxParticipants: '6', participantPreferences: emptyPreferences, requirements: '',
     financialConfig: {
       fundingMode: 'FULL_PREPAYMENT', paymentDeadline: '', treasurerUserId: 'current-user',
-      approvalThreshold: 1000000, approvalRule: 'TWO_THIRDS',
+      estimatedCostPerMember: 0, approvalThreshold: 1000000, approvalRule: 'TWO_THIRDS',
     },
   };
 }
@@ -38,6 +41,8 @@ function currency(value?: number) { return value ? `${value.toLocaleString('vi-V
 function toAmount(value: string) { const amount = Number(value.replace(/\D/g, '')); return Number.isFinite(amount) ? amount : 0; }
 
 export function CreateActivityScreen({ onCreated }: { onCreated: () => void }) {
+  const publishing = useRef(false);
+  const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState(createInitialDraft);
   const [customCategory, setCustomCategory] = useState(false);
@@ -45,19 +50,24 @@ export function CreateActivityScreen({ onCreated }: { onCreated: () => void }) {
   const setField: SetField = (key, value) => setDraft((current) => ({ ...current, [key]: value }));
 
   const pickPhoto = async () => {
-    if (draft.photos.length >= 6) { setError('Bạn có thể thêm tối đa 6 ảnh.'); return; }
+    if (draft.photos.length >= 1) { setError('Hiện hỗ trợ một ảnh bìa, tối đa 2 MB.'); return; }
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) { setError('GoMate cần quyền truy cập thư viện ảnh.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], mediaTypes: ['images'], quality: 0.85 });
-    if (!result.canceled) { setField('photos', [...draft.photos, { uri: result.assets[0].uri }]); setError(undefined); }
+    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], mediaTypes: ['images'], quality: 0.75, base64: true });
+    if (!result.canceled) { setField('photos', [...draft.photos, { uri: result.assets[0].uri, base64: result.assets[0].base64 ?? undefined }]); setError(undefined); }
   };
 
   const next = async () => {
     setError(undefined);
+    try { validateActivityDraft(draft, Math.min(step, 4)); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Invalid input'); return; }
     if (step < 5) { setStep((current) => current + 1); return; }
-    await publishActivityDraft({ ...draft, cover: draft.photos[0] });
-    onCreated();
-    setStep(1); setDraft(createInitialDraft()); setCustomCategory(false);
+    if (publishing.current) return;
+    publishing.current = true; setBusy(true);
+    try {
+      await publishActivityDraft({ ...draft, cover: draft.photos[0] });
+      onCreated(); setStep(1); setDraft(createInitialDraft()); setCustomCategory(false);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không đăng được hoạt động'); }
+    finally { publishing.current = false; setBusy(false); }
   };
 
   return <View style={styles.screen}>
@@ -71,14 +81,14 @@ export function CreateActivityScreen({ onCreated }: { onCreated: () => void }) {
       {step === 4 && <FinancialStep draft={draft} setField={setField} />}
       {step === 5 && <ReviewStep draft={draft} onEditFinancial={() => setStep(4)} />}
     </View></ScrollView>
-    <View style={styles.footer}>{step > 1 && <Pressable onPress={() => { setError(undefined); setStep((current) => current - 1); }} style={styles.backButton}><Text style={styles.backText}>Quay lại</Text></Pressable>}<GradientButton label={step === 5 ? 'Đăng hoạt động' : 'Tiếp tục'} onPress={next} style={styles.nextButton} trailing={<Ionicons color={colors.white} name={step === 5 ? 'checkmark' : 'arrow-forward'} size={19} />} /></View>
+    <View style={styles.footer}>{step > 1 && <Pressable onPress={() => { setError(undefined); setStep((current) => current - 1); }} style={styles.backButton}><Text style={styles.backText}>Quay lại</Text></Pressable>}<GradientButton label={busy ? 'Publishing...' : step === 5 ? 'Đăng hoạt động' : 'Tiếp tục'} onPress={next} style={styles.nextButton} trailing={<Ionicons color={colors.white} name={step === 5 ? 'checkmark' : 'arrow-forward'} size={19} />} /></View>
   </View>;
 }
 
 function BasicStep({ customCategory, draft, onCustomCategory, onPickPhoto, onPresetCategory, onRemovePhoto, setField }: StepProps & { customCategory: boolean; onCustomCategory: () => void; onPickPhoto: () => void; onPresetCategory: (category: string) => void; onRemovePhoto: (index: number) => void }) {
   return <View><StepHeading icon="sparkles-outline" title="Thông tin cơ bản" note="Ảnh rõ, tên ngắn và mô tả cụ thể giúp hoạt động dễ được quan tâm hơn." />
-    <Text style={styles.fieldLabel}>Ảnh hoạt động <Text style={styles.optional}>· tối đa 6 ảnh, tỉ lệ 1:1</Text></Text>
-    <View style={styles.photoGrid}>{draft.photos.map((photo, index) => <View key={photo.uri} style={styles.photoTile}><Image source={photo} style={styles.photo} />{index === 0 && <View style={styles.coverBadge}><Text style={styles.coverBadgeText}>Ảnh bìa</Text></View>}<Pressable accessibilityLabel="Xóa ảnh" onPress={() => onRemovePhoto(index)} style={styles.removePhoto}><Ionicons color={colors.white} name="close" size={15} /></Pressable></View>)}{draft.photos.length < 6 && <Pressable onPress={onPickPhoto} style={styles.addPhoto}><Ionicons color={colors.primary} name="add" size={27} /><Text style={styles.addPhotoText}>Thêm ảnh</Text></Pressable>}</View>
+    <Text style={styles.fieldLabel}>Ảnh hoạt động <Text style={styles.optional}>· một ảnh bìa, tối đa 2 MB, tỉ lệ 1:1</Text></Text>
+    <View style={styles.photoGrid}>{draft.photos.map((photo, index) => <View key={photo.uri} style={styles.photoTile}><Image source={photo} style={styles.photo} />{index === 0 && <View style={styles.coverBadge}><Text style={styles.coverBadgeText}>Ảnh bìa</Text></View>}<Pressable accessibilityLabel="Xóa ảnh" onPress={() => onRemovePhoto(index)} style={styles.removePhoto}><Ionicons color={colors.white} name="close" size={15} /></Pressable></View>)}{draft.photos.length < 1 && <Pressable onPress={onPickPhoto} style={styles.addPhoto}><Ionicons color={colors.primary} name="add" size={27} /><Text style={styles.addPhotoText}>Thêm ảnh</Text></Pressable>}</View>
     <View style={styles.card}><FormField icon="text-outline" label="Tên hoạt động" onChangeText={(value) => setField('name', value)} placeholder="Ví dụ: Cà phê cuối tuần" value={draft.name} /><ChoiceGroup label="Danh mục" options={[...activityCategories, 'Khác']} selected={customCategory ? 'Khác' : draft.category} onSelect={(value) => value === 'Khác' ? onCustomCategory() : onPresetCategory(value)} />{customCategory && <FormField icon="create-outline" label="Danh mục của bạn" onChangeText={(value) => setField('category', value)} placeholder="Ví dụ: Nhiếp ảnh đường phố" value={draft.category} />}<FormField icon="reader-outline" label="Mô tả" multiline onChangeText={(value) => setField('description', value)} placeholder="Mục tiêu, trải nghiệm và những điều thành viên cần biết" value={draft.description} /></View>
   </View>;
 }
@@ -86,9 +96,9 @@ function BasicStep({ customCategory, draft, onCustomCategory, onPickPhoto, onPre
 function WhenWhereStep({ draft, setField }: StepProps) {
   const districts = activityLocations[draft.province] ?? [];
   return <View><StepHeading icon="calendar-outline" title="Thời gian & địa điểm" note="Cung cấp lịch chi tiết và điểm gặp rõ ràng để mọi người dễ sắp xếp." /><View style={styles.card}>
-    <View style={styles.twoColumns}><View style={styles.column}><FormField icon="calendar-outline" label="Ngày bắt đầu" onChangeText={(value) => setField('date', value)} placeholder="DD/MM/YYYY" value={draft.date} /></View><View style={styles.column}><FormField icon="calendar-outline" label="Ngày kết thúc" onChangeText={(value) => setField('endDate', value)} placeholder="Nếu khác ngày" value={draft.endDate} /></View></View>
-    <View style={styles.twoColumns}><View style={styles.column}><FormField icon="time-outline" label="Bắt đầu" onChangeText={(value) => setField('startTime', value)} placeholder="09:00" value={draft.startTime} /></View><View style={styles.column}><FormField icon="time-outline" label="Kết thúc" onChangeText={(value) => setField('endTime', value)} placeholder="11:00" value={draft.endTime} /></View></View>
-    <FormField icon="hourglass-outline" label="Hạn nhận yêu cầu tham gia" onChangeText={(value) => setField('registrationDeadline', value)} placeholder="DD/MM/YYYY · HH:mm" value={draft.registrationDeadline} />
+    <View style={styles.twoColumns}><View style={styles.column}><DateField label="Ngày bắt đầu" value={draft.date} onChange={(value) => setField('date', value)} /></View><View style={styles.column}><DateField label="Ngày kết thúc" value={draft.endDate} onChange={(value) => setField('endDate', value)} /></View></View>
+    <View style={styles.twoColumns}><View style={styles.column}><TimeField label="Bắt đầu" value={draft.startTime} onChange={(value) => setField('startTime', value)} /></View><View style={styles.column}><TimeField label="Kết thúc" value={draft.endTime} onChange={(value) => setField('endTime', value)} /></View></View>
+    <DateTimeField label="Hạn nhận yêu cầu tham gia" value={draft.registrationDeadline} onChange={(value) => setField('registrationDeadline', value)} />
     <ChoiceGroup label="Tỉnh / thành phố" options={provinces} selected={draft.province} onSelect={(province) => { setField('province', province); setField('district', activityLocations[province]?.[0] ?? ''); }} />
     <ChoiceGroup label="Quận / huyện" options={districts} selected={draft.district} onSelect={(value) => setField('district', value)} />
     <FormField icon="location-outline" label="Địa chỉ" onChangeText={(value) => setField('address', value)} placeholder="Số nhà, tên đường hoặc địa điểm" value={draft.address} />
@@ -97,16 +107,16 @@ function WhenWhereStep({ draft, setField }: StepProps) {
   </View></View>;
 }
 
-function GroupStep({ draft, setField }: StepProps) { return <View><StepHeading icon="people-outline" title="Thiết lập nhóm" note="Quy mô và yêu cầu rõ ràng giúp bạn duyệt đúng người đồng hành." /><View style={styles.card}><FormField icon="people-outline" keyboardType="number-pad" label="Số thành viên tối đa" onChangeText={(value) => setField('maxParticipants', value.replace(/\D/g, ''))} placeholder="6" value={draft.maxParticipants} /><FormField icon="checkmark-circle-outline" label="Yêu cầu tham gia" multiline onChangeText={(value) => setField('requirements', value)} placeholder="Trang phục, kinh nghiệm, vật dụng cần mang..." value={draft.requirements} /></View><View style={styles.note}><Ionicons color={colors.success} name="shield-checkmark" size={19} /><Text style={styles.noteText}>Bạn sẽ xem hồ sơ và duyệt từng yêu cầu trước khi thành viên được xác nhận.</Text></View></View>; }
+function GroupStep({ draft, setField }: StepProps) { return <CreateGroupFields draft={draft} onChange={(patch) => { for (const key of Object.keys(patch) as (keyof ActivityDraft)[]) setField(key, patch[key]!); }} />; }
 
 function FinancialStep({ draft, setField }: StepProps) {
   const config = draft.financialConfig;
   const setConfig = (patch: Partial<ActivityDraft['financialConfig']>) => setField('financialConfig', { ...config, ...patch });
   const selectMode = (fundingMode: FundingMode) => setConfig(fundingMode === 'FULL_PREPAYMENT' ? { fundingMode, depositAmount: undefined, estimatedCostMin: undefined, estimatedCostMax: undefined } : { fundingMode, estimatedCostPerMember: undefined });
-  const memberCount = Math.max(0, Number(draft.maxParticipants));
+  const memberCount = Number(draft.maxParticipants || 1000);
   return <View><StepHeading icon="wallet-outline" title="Quản lý chi phí" note="Chọn cách thành viên đóng tiền cho hoạt động." />
     <View style={styles.fundingOptions}><FundingOption description="Thành viên đóng toàn bộ khoản dự kiến trước khi hoạt động bắt đầu." icon="card-outline" label="Đóng đủ trước" onPress={() => selectMode('FULL_PREPAYMENT')} selected={config.fundingMode === 'FULL_PREPAYMENT'} /><FundingOption description="Thành viên đóng một phần trước và bổ sung phần còn thiếu sau." icon="wallet-outline" label="Đặt cọc trước" onPress={() => selectMode('DEPOSIT')} selected={config.fundingMode === 'DEPOSIT'} /></View>
-    <View style={styles.card}>{config.fundingMode === 'FULL_PREPAYMENT' ? <><MoneyField label="Chi phí dự kiến / người" onChange={(value) => setConfig({ estimatedCostPerMember: value })} value={config.estimatedCostPerMember} /><FormField icon="calendar-outline" label="Thời hạn đóng tiền" onChangeText={(value) => setConfig({ paymentDeadline: value })} placeholder="DD/MM/YYYY · HH:mm" value={config.paymentDeadline} /><View style={styles.summaryBox}><Text style={styles.summaryText}>Mỗi thành viên cần đóng {currency(config.estimatedCostPerMember)} trước thời hạn.</Text>{config.estimatedCostPerMember ? <Text style={styles.summaryStrong}>{memberCount} thành viên × {currency(config.estimatedCostPerMember)} = {currency(memberCount * config.estimatedCostPerMember)}</Text> : null}</View></> : <><View style={styles.twoColumns}><View style={styles.column}><MoneyField label="Chi phí tối thiểu" onChange={(value) => setConfig({ estimatedCostMin: value })} value={config.estimatedCostMin} /></View><View style={styles.column}><MoneyField label="Chi phí tối đa" onChange={(value) => setConfig({ estimatedCostMax: value })} value={config.estimatedCostMax} /></View></View><MoneyField label="Tiền cọc / người" onChange={(value) => setConfig({ depositAmount: value })} value={config.depositAmount} /><FormField icon="calendar-outline" label="Thời hạn đóng cọc" onChangeText={(value) => setConfig({ paymentDeadline: value })} placeholder="DD/MM/YYYY · HH:mm" value={config.paymentDeadline} /><View style={styles.summaryBox}><Text style={styles.summaryText}>Phần chi phí còn thiếu sẽ được bổ sung sau nếu cần.</Text></View></>}
+    <View style={styles.card}>{config.fundingMode === 'FULL_PREPAYMENT' ? <><MoneyField label="Chi phí dự kiến / người" onChange={(value) => setConfig({ estimatedCostPerMember: value })} value={config.estimatedCostPerMember} /><DateTimeField label="Thời hạn đóng tiền" value={config.paymentDeadline} onChange={(value) => setConfig({ paymentDeadline: value })} /><View style={styles.summaryBox}><Text style={styles.summaryText}>Mỗi thành viên cần đóng {currency(config.estimatedCostPerMember)} trước thời hạn.</Text>{config.estimatedCostPerMember ? <Text style={styles.summaryStrong}>{memberCount} thành viên × {currency(config.estimatedCostPerMember)} = {currency(memberCount * config.estimatedCostPerMember)}</Text> : null}</View></> : <><View style={styles.twoColumns}><View style={styles.column}><MoneyField label="Chi phí tối thiểu" onChange={(value) => setConfig({ estimatedCostMin: value })} value={config.estimatedCostMin} /></View><View style={styles.column}><MoneyField label="Chi phí tối đa" onChange={(value) => setConfig({ estimatedCostMax: value })} value={config.estimatedCostMax} /></View></View><MoneyField label="Tiền cọc / người" onChange={(value) => setConfig({ depositAmount: value })} value={config.depositAmount} /><DateTimeField label="Thời hạn đóng cọc" value={config.paymentDeadline} onChange={(value) => setConfig({ paymentDeadline: value })} /><View style={styles.summaryBox}><Text style={styles.summaryText}>Phần chi phí còn thiếu sẽ được bổ sung sau nếu cần.</Text></View></>}
       <View style={styles.ruleDivider} /><Text style={styles.sectionTitle}>Quy tắc quỹ</Text><View style={styles.managerRow}><View style={styles.managerIcon}><Ionicons color={colors.primary} name="person" size={18} /></View><View style={styles.managerCopy}><Text style={styles.managerLabel}>Người quản lý quỹ</Text><Text style={styles.managerValue}>Bạn (Host)</Text></View><Ionicons color={colors.success} name="checkmark-circle" size={20} /></View><MoneyField label="Ngưỡng cần thành viên xác nhận" onChange={(value) => setConfig({ approvalThreshold: value })} value={config.approvalThreshold} /><ChoiceGroup label="Quy tắc xác nhận" options={approvalRules.map((rule) => rule.label)} selected={approvalRules.find((rule) => rule.value === config.approvalRule)?.label ?? ''} onSelect={(label) => setConfig({ approvalRule: approvalRules.find((rule) => rule.label === label)?.value ?? 'TWO_THIRDS' })} />
     </View>
   </View>;
@@ -115,8 +125,9 @@ function FinancialStep({ draft, setField }: StepProps) {
 function ReviewStep({ draft, onEditFinancial }: { draft: ActivityDraft; onEditFinancial: () => void }) {
   const config = draft.financialConfig;
   const approvalLabel = approvalRules.find((rule) => rule.value === config.approvalRule)?.label;
-  return <View><StepHeading icon="checkmark-done-outline" title="Xem lại trước khi đăng" note="Kiểm tra thông tin chính trước khi hoạt động được công khai." /><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reviewPhotos}>{draft.photos.map((photo) => <Image key={photo.uri} source={photo} style={styles.reviewImage} />)}</ScrollView><View style={styles.reviewCard}><Text style={styles.reviewCategory}>{draft.category}</Text><Text style={styles.reviewTitle}>{draft.name}</Text><Text style={styles.reviewDescription}>{draft.description}</Text><ReviewRow icon="calendar-outline" value={`${draft.date}${draft.endDate ? ` – ${draft.endDate}` : ''} · ${draft.startTime}–${draft.endTime}`} /><ReviewRow icon="location-outline" value={`${draft.address}, ${draft.district}, ${draft.province}`} /><ReviewRow icon="people-outline" value={`Tối đa ${draft.maxParticipants} thành viên`} /><ReviewRow icon="hourglass-outline" value={`Nhận yêu cầu đến ${draft.registrationDeadline}`} /></View>
-    <View style={styles.reviewCard}><View style={styles.reviewSectionHeading}><Text style={styles.sectionTitle}>Quản lý chi phí</Text><Pressable onPress={onEditFinancial}><Text style={styles.editText}>Chỉnh sửa</Text></Pressable></View><Text style={styles.fundingReviewTitle}>{config.fundingMode === 'FULL_PREPAYMENT' ? 'Đóng đủ trước' : 'Đặt cọc trước'}</Text>{config.fundingMode === 'FULL_PREPAYMENT' ? <Text style={styles.fundingReviewText}>{currency(config.estimatedCostPerMember)} / người</Text> : <><Text style={styles.fundingReviewText}>{currency(config.depositAmount)} cọc / người</Text><Text style={styles.fundingReviewText}>Dự kiến {currency(config.estimatedCostMin)} – {currency(config.estimatedCostMax)}</Text></>}<Text style={styles.fundingReviewText}>Hạn đóng: {config.paymentDeadline}</Text><Text style={styles.fundingReviewText}>Khoản từ {currency(config.approvalThreshold)} cần {approvalLabel?.toLowerCase()} xác nhận</Text></View>
+  return <View><StepHeading icon="checkmark-done-outline" title="Xem lại trước khi đăng" note="Kiểm tra thông tin chính trước khi hoạt động được công khai." /><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reviewPhotos}>{draft.photos.map((photo) => <Image key={photo.uri} source={photo} style={styles.reviewImage} />)}</ScrollView><View style={styles.reviewCard}><Text style={styles.reviewCategory}>{draft.category}</Text><Text style={styles.reviewTitle}>{draft.name}</Text><Text style={styles.reviewDescription}>{draft.description}</Text><ReviewRow icon="calendar-outline" value={`${draft.date}${draft.endDate ? ` – ${draft.endDate}` : ''} · ${draft.startTime}–${draft.endTime}`} /><ReviewRow icon="location-outline" value={`${draft.address}, ${draft.district}, ${draft.province}`} /><ReviewRow icon="people-outline" value={`Tối đa ${draft.maxParticipants || 1000} thành viên`} /><ReviewRow icon="hourglass-outline" value={`Nhận yêu cầu đến ${draft.registrationDeadline}`} /></View>
+    <View style={styles.reviewCard}><Text style={styles.sectionTitle}>Nhóm từ {draft.minParticipants || 2} đến {draft.maxParticipants || 1000} thành viên</Text><PreferencesSummary value={draft.participantPreferences} /></View>
+    <View style={styles.reviewCard}><View style={styles.reviewSectionHeading}><Text style={styles.sectionTitle}>Quản lý chi phí</Text><Pressable onPress={onEditFinancial}><Text style={styles.editText}>Chỉnh sửa</Text></Pressable></View><Text style={styles.fundingReviewTitle}>{config.fundingMode === 'FULL_PREPAYMENT' ? 'Đóng đủ trước' : 'Đặt cọc trước'}</Text>{config.fundingMode === 'FULL_PREPAYMENT' ? <Text style={styles.fundingReviewText}>{currency(config.estimatedCostPerMember)} / người</Text> : <><Text style={styles.fundingReviewText}>{currency(config.depositAmount)} cọc / người</Text><Text style={styles.fundingReviewText}>Dự kiến {currency(config.estimatedCostMin)} – {currency(config.estimatedCostMax)}</Text></>}<Text style={styles.fundingReviewText}>Hạn đóng: {config.paymentDeadline || 'Không yêu cầu (hoạt động miễn phí)'}</Text><Text style={styles.fundingReviewText}>Khoản từ {currency(config.approvalThreshold)} cần {approvalLabel?.toLowerCase()} xác nhận</Text></View>
   </View>;
 }
 

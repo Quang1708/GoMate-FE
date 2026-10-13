@@ -4,6 +4,63 @@ Record decisions here when they materially affect architecture, dependencies,
 security, the data model, or product behavior. Keep the newest decision at the
 top. Small implementation details belong only in `DEVELOPMENT_LOG.md`.
 
+### 2026-10-13 - Remote demo media and persisted member rosters
+
+- **Status:** Accepted.
+- **Decision:** Demo activities use curated external Unsplash images; profiles use
+  Random User portraits and Unsplash covers. FE activity adapters no longer fall
+  back to local images. CSP permits only these providers alongside existing Cloudinary.
+- **Decision:** Add ten complete fictional member accounts (14 demo accounts total)
+  and actual approved/pending join requests. Group counts derive from approved
+  membership. Enrichment only targets marked demo records; roster version guards
+  prevent resurrecting cancelled/left/removed membership on reruns.
+- **Decision:** Show member avatars and a real public-profile modal. Public responses
+  omit email, date of birth, gender, religion and alcohol settings.
+- **Consequences:** Images require provider/network availability. Accounts remain
+  explicitly fictional. Existing demo account completion reminders no longer show
+  because all demo profiles are now complete; ordinary incomplete accounts still get reminders.
+- **Supersedes:** Local activity-image fallback and the empty demo participant profile.
+
+### 2026-10-13 - Automatic verification login, precise scheduling and real profiles
+
+- **Status:** Accepted.
+- **Decision:** Passwords require 6–128 characters without composition rules.
+  Successful single-use email verification issues a regular Bearer session;
+  FE enters the app immediately without retaining/reusing the password.
+- **Decision:** Shared calendar/time controls feed Vietnam dates and minute-level
+  times to BE. Activities store min/max member counts and optional participant
+  requirements. Match filters dates, times, sizes and requirements server-side.
+- **Decision:** Profile completion requires name, location, bio, interests and
+  languages. Avatar, gender, religion, alcohol and birth date are optional;
+  advanced fields remain collapsed. App reminders can be deferred. Host-selected
+  restrictions use volunteered profile fields and are enforced when requesting to join.
+- **Decision:** Seed 20 fictional TP.HCM activities with four marked demo accounts,
+  deterministic IDs and insert-only writes. Dates start tomorrow at first seed;
+  reruns preserve existing data rather than rescheduling it.
+- **Consequences:** Existing long passwords remain valid. Sessions still live in
+  memory in FE; refresh needs login. Finance setup is persisted, but payment
+  transactions are not part of creation. Missing optional profile data does not
+  satisfy an explicitly restricted group. Demo listings are clearly labeled.
+- **Supersedes:** Manual login after email verification and mock profile UI.
+
+### 2026-10-13 - Use backend identity and persisted activity membership
+
+- **Status:** Accepted.
+- **Context:** The Expo application used Vite environment variables, mock login,
+  local join decisions and hardcoded group members despite available BE endpoints.
+- **Decision:** Use `EXPO_PUBLIC_API_BASE_URL` and Bearer sessions; keep tokens in
+  memory and return to login on 401. Read hosted, joined and pending activities
+  from their separate endpoints. All membership mutations await server success.
+- **Consequences:** Reload requires login. Lists exhaust pagination and offer
+  refresh/error states. Create persists to BE, converts Vietnam input dates to
+  UTC, and supports one cover image rather than six local-only photos. BE stores
+  and validates optional funding configuration and registration deadlines;
+  treasury is the host. Funding transactions and the remaining prototype screens
+  are outside this integration. Actual form/API validation now prevents invalid
+  publication; mock navigation between form steps remains available.
+- **Supersedes:** Local publication in the funding decision and unrestricted mock
+  publication in the 2026-09-29 Create Activity navigation decision.
+
 ### 2026-09-29 - Configure activity funding during creation
 
 - **Status:** Accepted

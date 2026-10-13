@@ -4,12 +4,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '../components/LocalizedText';
+import { post, verifyEmail } from '../services/api';
 import { colors, control, layout, typography } from '../theme';
 
-const CODE_LENGTH = 5;
+const CODE_LENGTH = 6;
 
-export function VerifyEmailScreen({ onVerified, onBack }: { onVerified: () => void; onBack: () => void }) {
-  const [code, setCode] = useState(['4', '9', '', '', '']);
+export function VerifyEmailScreen({ email, onVerified, onBack }: { email: string; onVerified: () => void; onBack: () => void }) {
+  const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const submit = async (resend = false) => {
+    if (busy) return;
+    setBusy(true); setFeedback('');
+    try {
+      if (resend) { await post('/auth/resend-verification', { email }); setFeedback('Đã yêu cầu gửi lại mã. Vui lòng đợi ít nhất 60 giây.'); }
+      else { await verifyEmail(email, code.join('')); onVerified(); }
+    } catch (reason) { setFeedback(reason instanceof Error ? reason.message : 'Xác minh thất bại'); }
+    finally { setBusy(false); }
+  };
   const inputs = useRef<(TextInput | null)[]>([]);
 
   const updateDigit = (value: string, index: number) => {
@@ -32,7 +44,7 @@ export function VerifyEmailScreen({ onVerified, onBack }: { onVerified: () => vo
         <View style={styles.body}>
           <View>
             <Text style={styles.title}>Check your email</Text>
-            <Text style={styles.subtitle}>We sent a 5-digit code to noah@gomate.app. Enter it below to verify.</Text>
+            <Text style={styles.subtitle}>{`Nhập mã xác minh 6 số đã gửi tới ${email}. Xác minh xong, bạn sẽ tự động đăng nhập.`}</Text>
             <View style={styles.codeRow}>
               {code.map((digit, index) => (
                 <TextInput
@@ -44,14 +56,14 @@ export function VerifyEmailScreen({ onVerified, onBack }: { onVerified: () => vo
                   onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                   ref={(input) => { inputs.current[index] = input; }}
                   selectTextOnFocus
-                  style={[styles.codeInput, index === 2 && !digit && styles.codeInputActive]}
+                  style={styles.codeInput}
                   value={digit}
                 />
               ))}
             </View>
-            <View style={styles.resendRow}><Text style={styles.resendHint}>Did not get it?</Text><Pressable><Text style={styles.resend}>Resend code</Text></Pressable></View>
+            <View style={styles.resendRow}><Text style={styles.resendHint}>Did not get it?</Text><Pressable disabled={busy} onPress={() => void submit(true)}><Text style={styles.resend}>Resend code</Text></Pressable></View>
           </View>
-          <Pressable onPress={onVerified} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><Text style={styles.primaryButtonLabel}>Verify email</Text></Pressable>
+          {feedback ? <Text>{feedback}</Text> : null}<Pressable disabled={busy} onPress={() => void submit()} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><Text style={styles.primaryButtonLabel}>Verify email</Text></Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -68,7 +80,6 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.textSecondary, marginTop: 4, maxWidth: 400, ...typography.body },
   codeRow: { flexDirection: 'row', gap: 9, marginTop: 28 },
   codeInput: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 12, borderWidth: 1, color: colors.text, flex: 1, fontSize: 25, fontWeight: '700', height: 58, maxWidth: 66, padding: 0, textAlign: 'center' },
-  codeInputActive: { borderColor: colors.primary, borderWidth: 2 },
   resendRow: { alignItems: 'center', flexDirection: 'row', gap: 4, marginTop: 24 },
   resendHint: { color: colors.textSecondary, fontSize: 13, lineHeight: 20 },
   resend: { color: colors.primary, fontSize: 13, fontWeight: '700', lineHeight: 20 },

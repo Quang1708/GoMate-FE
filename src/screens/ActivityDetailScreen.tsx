@@ -8,13 +8,15 @@ import { GradientButton } from '../components/GradientButton';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Activity } from '../data/activities';
 import { colors, layout, radii } from '../theme';
+import { genderOptions, religionOptions } from '../components/ActivityChoices';
 
-export function ActivityDetailScreen({ activity, isHost = false, onBack, onPrimary, onViewPeople }: { activity: Activity; isHost?: boolean; onBack: () => void; onPrimary: () => void; onViewPeople: () => void }) {
+export function ActivityDetailScreen({ activity, error, isHost = false, onBack, onPrimary, onViewPeople }: { activity: Activity; error?: string; isHost?: boolean; onBack: () => void; onPrimary: () => void; onViewPeople: () => void }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScreenHeader onBack={onBack} title="Chi tiết hoạt động" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.page}>
+          {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
           <ImageBackground imageStyle={styles.heroImage} source={activity.image} style={styles.hero}>
             <LinearGradient colors={['transparent', colors.overlayStrong]} style={styles.heroGradient}>
               <View style={styles.category}><Text style={styles.categoryText}>{activity.category}</Text></View>
@@ -39,14 +41,22 @@ export function ActivityDetailScreen({ activity, isHost = false, onBack, onPrima
           </Pressable>
 
           <Section title="Thông tin hoạt động"><Text style={styles.body}>{activity.description}</Text></Section>
-          <Section title={`Thành viên (${activity.members})`}><Text style={styles.body}>Nhóm nhỏ, ưu tiên trải nghiệm thoải mái và đúng sở thích.</Text></Section>
+          <Section title={`Thành viên (${activity.members})`}><Text style={styles.body}>Tối thiểu {activity.minParticipants ?? 2} thành viên, tính cả host.</Text></Section>
+          {activity.meetingPoint ? <Section title="Điểm tập trung"><Text style={styles.body}>{activity.meetingPoint}</Text></Section> : null}
+          {activity.participantPreferences && <Section title="Tùy chọn nhóm">
+            {activity.participantPreferences.genders.length ? <Bullet text={`Giới tính: ${activity.participantPreferences.genders.map(value => genderOptions.find(([key]) => key === value)?.[1] || value).join(', ')}`} /> : null}
+            {activity.participantPreferences.languages.length ? <Bullet text={`Ngôn ngữ: ${activity.participantPreferences.languages.join(', ')}`} /> : null}
+            {activity.participantPreferences.religions.length ? <Bullet text={`Tôn giáo: ${activity.participantPreferences.religions.map(value => religionOptions.find(([key]) => key === value)?.[1] || value).join(', ')}`} /> : null}
+            {activity.participantPreferences.alcohol !== 'any' ? <Bullet text={activity.participantPreferences.alcohol === 'yes' ? 'Có thể uống rượu' : 'Không uống rượu'} /> : null}
+            {activity.participantPreferences.dressCode ? <Bullet text={`Dress code: ${activity.participantPreferences.dressCode}`} /> : null}
+          </Section>}
           <Section title="Yêu cầu">
             {activity.requirements.map((item) => <Bullet key={item} text={item} />)}
           </Section>
           <Section title="Kế hoạch dự kiến">
             {activity.plan.map((item) => <Bullet key={item} text={item} timeline />)}
           </Section>
-          <GradientButton label={isHost ? 'Quản lý hoạt động' : 'Gửi yêu cầu tham gia'} onPress={onPrimary} style={styles.cta} trailing={<Ionicons color={colors.white} name={isHost ? 'settings-outline' : 'heart'} size={19} />} />
+          <GradientButton label={activity.requestStatus === 'pending' ? 'Hủy yêu cầu tham gia' : activity.requestStatus === 'approved' ? 'Mở nhóm hoạt động' : isHost ? 'Quản lý hoạt động' : 'Gửi yêu cầu tham gia'} onPress={onPrimary} style={styles.cta} trailing={<Ionicons color={colors.white} name={isHost ? 'settings-outline' : 'heart'} size={19} />} />
         </View>
       </ScrollView>
     </SafeAreaView>

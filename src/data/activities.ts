@@ -2,6 +2,14 @@ import { ImageSourcePropType } from 'react-native';
 
 export type Activity = {
   id: string;
+  hostId?: string;
+  minParticipants?: number;
+  participantPreferences?: import('../components/ActivityChoices').ParticipantPreferences;
+  meetingPoint?: string;
+  startsAt?: string;
+  endsAt?: string;
+  requestStatus?: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'left' | 'removed';
+  backendStatus?: 'published' | 'in-progress' | 'completed';
   title: string;
   host: string;
   location: string;

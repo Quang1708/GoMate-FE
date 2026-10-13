@@ -9,11 +9,12 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:integration": "node --test tests/backend.integration.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
-    "expo": "~57.0.25",
+    "expo": "~57.0.28",
     "expo-font": "~57.0.4",
     "expo-image-picker": "~57.0.20",
     "expo-linear-gradient": "~57.0.2",

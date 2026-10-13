@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '../components/LocalizedText';
+import { AdvancedPreferences, emptyPreferences, ParticipantPreferences } from '../components/ActivityChoices';
+import { DateField, dateToIso, TimeField } from '../components/DateTimeField';
+import { FormField } from '../components/FormField';
 import { activityCategories, activityLocations, provinces } from '../data/activityOptions';
 import { colors, control, layout, radii } from '../theme';
 
@@ -19,11 +22,18 @@ export type ActivityFilters = {
   minBudget: number;
   maxBudget: number;
   minimumCapacity: number;
+  maximumCapacity: number;
+  dateFrom: string;
+  dateTo: string;
+  fromTime: string;
+  toTime: string;
+  preferences: ParticipantPreferences;
 };
 
 export const defaultActivityFilters: ActivityFilters = {
   province: 'Tất cả', district: 'Tất cả', distance: 10, categories: [],
   availableDays: [], timePeriods: [], minBudget: 0, maxBudget: 2000000, minimumCapacity: 0,
+  maximumCapacity: 0, dateFrom: '', dateTo: '', fromTime: '', toTime: '', preferences: emptyPreferences,
 };
 
 type FilterScreenProps = { initialFilters?: ActivityFilters; onApply: (filters: ActivityFilters) => void; onClose: () => void };
@@ -49,6 +59,15 @@ export function FilterScreen(props: FilterScreenProps) { return <FilterSheet {..
 
 export function FilterSheet({ initialFilters = defaultActivityFilters, onApply, onClose }: FilterScreenProps) {
   const [filters, setFilters] = useState<ActivityFilters>(initialFilters);
+  const [error, setError] = useState('');
+  const apply = () => {
+    if (filters.dateFrom && filters.dateTo && dateToIso(filters.dateFrom) > dateToIso(filters.dateTo)) { setError('Ngày kết thúc không được trước ngày bắt đầu.'); return; }
+    if (filters.fromTime && filters.toTime && filters.fromTime > filters.toTime) { setError('Giờ kết thúc không được trước giờ bắt đầu.'); return; }
+    if ((filters.fromTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(filters.fromTime)) || (filters.toTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(filters.toTime))) { setError('Giờ cần theo định dạng HH:mm.'); return; }
+    if (filters.maximumCapacity && filters.minimumCapacity > filters.maximumCapacity) { setError('Số lượng tối thiểu không được lớn hơn tối đa.'); return; }
+    if ([filters.minimumCapacity, filters.maximumCapacity].some(value => value !== 0 && (!Number.isInteger(value) || value < 2 || value > 1000))) { setError('Số lượng thành viên cần từ 2 đến 1000.'); return; }
+    onApply(filters);
+  };
   const districts = filters.province === 'Tất cả' ? [] : activityLocations[filters.province] ?? [];
   const toggleList = (key: 'categories' | 'availableDays' | 'timePeriods', value: string) => setFilters((current) => ({ ...current, [key]: current[key].includes(value) ? current[key].filter((item) => item !== value) : [...current[key], value] }));
 
@@ -69,6 +88,12 @@ export function FilterSheet({ initialFilters = defaultActivityFilters, onApply, 
       <FilterSection icon="calendar-outline" subtitle="Để trống nếu thời gian linh hoạt" title="Thời gian phù hợp">
         <Text style={styles.innerLabel}>Ngày trong tuần</Text><ChipGroup compact options={days} selected={filters.availableDays} onPress={(day) => toggleList('availableDays', day)} />
         <Text style={styles.innerLabel}>Buổi trong ngày</Text><ChipGroup options={periods} selected={filters.timePeriods} onPress={(period) => toggleList('timePeriods', period)} />
+        <View style={{ gap: 12, marginTop: 16 }}>
+          <DateField label="Từ ngày cụ thể" value={filters.dateFrom} onChange={dateFrom => setFilters(current => ({ ...current, dateFrom, dateTo: current.dateTo || dateFrom }))} />
+          <DateField label="Đến ngày cụ thể" value={filters.dateTo} onChange={dateTo => setFilters(current => ({ ...current, dateTo }))} />
+          <TimeField label="Giờ bắt đầu từ" value={filters.fromTime} onChange={fromTime => setFilters(current => ({ ...current, fromTime }))} />
+          <TimeField label="Giờ bắt đầu đến" value={filters.toTime} onChange={toTime => setFilters(current => ({ ...current, toTime }))} />
+        </View>
       </FilterSection>
 
       <FilterSection icon="wallet-outline" subtitle="Chi phí dự kiến cho mỗi người" title="Khoảng chi phí">
@@ -77,10 +102,13 @@ export function FilterSheet({ initialFilters = defaultActivityFilters, onApply, 
       </FilterSection>
 
       <FilterSection icon="people-outline" subtitle="Lọc theo sức chứa của nhóm" title="Số lượng thành viên">
-        <SliderHeader label="Nhóm có chỗ cho" value={filters.minimumCapacity ? `Ít nhất ${filters.minimumCapacity} người` : 'Bất kỳ'} /><DiscreteSlider labels={capacities.map((value) => value ? String(value) : 'Bất kỳ')} onChange={(minimumCapacity) => setFilters((current) => ({ ...current, minimumCapacity }))} value={filters.minimumCapacity} values={capacities} />
+        <SliderHeader label="Số thành viên tối thiểu của nhóm" value={filters.minimumCapacity ? `Ít nhất ${filters.minimumCapacity} người` : 'Bất kỳ'} /><DiscreteSlider labels={capacities.map((value) => value ? String(value) : 'Bất kỳ')} onChange={(minimumCapacity) => setFilters((current) => ({ ...current, minimumCapacity }))} value={filters.minimumCapacity} values={capacities} />
+        <FormField label="Sức chứa tối đa (để trống nếu bất kỳ)" keyboardType="number-pad" value={filters.maximumCapacity ? String(filters.maximumCapacity) : ''} onChangeText={value => setFilters(current => ({ ...current, maximumCapacity: Number(value.replace(/\D/g, '')) }))} placeholder="Ví dụ: 10" />
       </FilterSection>
+      <AdvancedPreferences filter value={filters.preferences} onChange={preferences => setFilters(current => ({ ...current, preferences }))} />
+      {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
     </View></ScrollView>
-    <View style={styles.footer}><Pressable onPress={() => onApply(filters)} style={({ pressed }) => [styles.applyButton, pressed && styles.pressed]}><Ionicons color={colors.white} name="options" size={19} /><Text style={styles.applyText}>Áp dụng bộ lọc</Text></Pressable></View>
+    <View style={styles.footer}><Pressable onPress={apply} style={({ pressed }) => [styles.applyButton, pressed && styles.pressed]}><Ionicons color={colors.white} name="options" size={19} /><Text style={styles.applyText}>Áp dụng bộ lọc</Text></Pressable></View>
   </SafeAreaView>;
 }
 

@@ -3,6 +3,139 @@
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
 
+## 2026-10-13 - Add remote demo photos, ten members and populated activity groups
+
+### Summary
+
+- Curated/verified external photos for all 20 activities; replaced API activity local
+  fallback images with remote URLs. Added stock avatars/covers to all demo profiles.
+- Added ten complete fictional users (14 total) with names, birth dates, locations,
+  bios, interests, languages, occupations and voluntary preferences.
+- Enriched existing demo records: 59 approved memberships and 20 pending requests;
+  each group has 3–5 people including host. Reruns preserve decisions/removals.
+- Added profile cover rendering, real member avatars and public-profile modal.
+  Public profile excludes private fields. Restricted CSP now allows chosen image hosts.
+
+### Files changed
+
+- BE `src/database/{demo-media,demo-data,seed-demo}.js`, `src/app.js`, profile/activity routes.
+- BE profile, join-request and demo tests; demo/profile docs.
+- FE `src/services/{activityApi,profileService}.ts`, `ProfileViews.tsx`, `MembershipViews.tsx`.
+- FE `src/components/MemberProfileModal.tsx`, README and decision/development logs.
+
+### Verification
+
+- BE `npm test`: Passed 57/57, including media/roster consistency, no duplicate
+  membership, preference compatibility, public-profile privacy and seed rerun after leave.
+- FE typecheck/lint/integration: Passed; Expo Doctor passed 21/21.
+- Expo web export: Passed; diff checks passed in both repositories.
+- HTTP image checks: Selected Unsplash URLs and all 14 distinct avatar URLs return
+  200/image MIME. Contact sheet visually reviewed; badminton, picnic and TP.HCM
+  photos corrected to match the respective topics.
+- Actual DB verification: 14 complete profiles, 20 remote activity images,
+  59 approved memberships, 20 pending, consistent counts and group sizes 3/4/5.
+- Browser: member1 login, profile cover/avatar loaded remotely; joined group showed
+  real member avatars; clicking Hoàng Nam opened real profile with loaded remote cover/avatar.
+
+### Remaining work
+
+- External providers/network can affect image availability; no offline local image fallback.
+- Physical-device QA not run. Broader prototype features remain as previously recorded.
+
+## 2026-10-13 - Complete signup, scheduling, activity creation and profiles; seed TP.HCM demo
+
+### Summary
+
+- Relaxed all password creation/reset/change checks to 6–128 characters; verification
+  issues a session and FE enters the app immediately. Removed the third OTP box highlight.
+- Added shared calendar and time selectors, retaining morning/afternoon/evening and
+  offering 15-minute slots plus manual exact time. Match submits precise date/time filters.
+- Added minimum/maximum group size and collapsed advanced requirements for gender,
+  language, religion, alcohol and dress code; persisted and validated across FE/BE.
+- Added per-step creation validation, free activity handling, synchronized category
+  contracts and requirement summaries. BE checks profile requirements on join.
+- Replaced own-profile mock screens with real profile fetching, saving and avatar
+  upload; added completion state and an optional reminder when entering the app.
+- Seeded 20 fictional upcoming TP.HCM activities and four demo accounts into the
+  configured database. Reruns are insert-only and preserve existing records.
+
+### Files changed
+
+- `App.tsx`, auth/verification, MainApp, Filter/Create/ActivityDetail and profile screens.
+- `src/components/{DateTimeField,ActivityChoices,CreateGroupFields}.tsx`, home/match UI.
+- `src/services/{api,activityApi,activityService,filterService,profileService}.ts`, `ProfileContext.tsx`.
+- `tests/backend.integration.cjs`, README, development/decision logs.
+- BE: auth/profile/activity routes and validation, activity repository, preference helpers,
+  demo seeder, package script, API docs/Postman and auth/profile/demo test suites.
+
+### Verification
+
+- FE `npm run typecheck`, `npm run lint`: Passed.
+- `npx expo-doctor`: Passed 21/21 checks.
+- BE `npm test`: Passed 57/57 tests, including six-character passwords, auto-login,
+  completion, voluntary preferences, precise Vietnam date/time filters and idempotent seeding.
+- FE `npm run test:integration`: Passed actual service-to-Express/MongoDB flow,
+  including short-password signup, automatic verification login, profile save and restricted joins.
+- Expo web export: Passed.
+- Playwright: real demo login showed completion reminder; saving profile persisted
+  complete state. Chose calendar date/time, created a 3–8-member activity with gender,
+  language and dress code (201); removed test activity afterward (204).
+  Date 14/10/2026 and 09:00–09:15 Match filter returned the expected one demo activity (200).
+- Actual `npm run db:seed-demo`: Created 20 activities. Browser test reset the demo
+  participant's basic fields afterward so the completion reminder remains demoable.
+- `git diff --check`: Passed both repositories.
+
+### Remaining work
+
+- Physical-device QA and live Cloudinary upload QA not run; avatar provider behavior
+  covered by BE tests. One cover image supported. Payment transactions, chat/messages,
+  general notifications, ratings and activity progress UI remain outside this task.
+- Persistent FE sessions, GPS-based distance filtering and Google/Apple UI remain unimplemented.
+- Existing upstream dependency audit advisories remain as recorded in the preceding entry.
+
+## 2026-10-13 - Connect activity requests and group membership to BE
+
+### Summary
+
+- Replaced mock login with email authentication/verification and password recovery.
+  Added Bearer API client, timeout, 401 handling and Expo environment configuration.
+- Connected Home/Match, creation, pending/joined/hosted lists, host decisions,
+  members, cancellation, leaving and removal with error states and refresh.
+- Updated BE CORS for Expo and validated/persisted creation funding and deadlines.
+  Cleaned duplicate MongoDB configuration locally, preserving the effective URI.
+- Updated Expo to 57.0.28 and applied compatible npm audit fixes.
+
+### Files changed
+
+- `.env.example`, `package.json`, `package-lock.json`, `App.tsx`, `README.md`.
+- `src/services/{api,activityApi,activityService,useRemote}.ts`.
+- `src/components/RemoteState.tsx`, `src/data/activities.ts`.
+- Auth/VerifyEmail, MainApp, Home/Match, Create/ActivityDetail, membership/list/group screens.
+- `tests/backend.integration.cjs`, `docs/DECISIONS.md`.
+- BE: config/env, activity validation/routes/repository, README and funding/CORS tests.
+
+### Verification
+
+- `npm run typecheck`, `npm run lint`: Passed.
+- `npx expo-doctor`: Passed 21/21 checks.
+- BE `npm test`: Passed 53/53 tests.
+- `npm run test:integration`: Passed; actual FE service code exercised against
+  Express/MongoDB for every requested endpoint, paging, identity and session expiry.
+- `npx expo export --platform web --output-dir dist`: Passed with same-origin `/api`.
+- Playwright browser: exported app rendered; invalid login called real BE and
+  displayed the 401 error without entering the application.
+- `git diff --check`: Passed for both repositories.
+- `npm audit fix`: Applied compatible fix; audit still reports 22 transitive
+  advisories (7 moderate, 15 high). Suggested forced fixes downgrade Expo/RN.
+
+### Remaining work
+
+- Profile/chat/messages/notifications, progress/expenses/ratings remain prototype;
+  Google/Apple UI, persistent login and financial transactions remain unimplemented.
+- Cover only supports one image; no physical-device validation. Browser smoke
+  tested login failure; authenticated membership flow verified through service integration.
+- Resolve remaining upstream dependency advisories without downgrading SDK 57.
+
 ## 2026-09-29 - Allow unrestricted Create Activity mockup navigation
 
 ### Summary
