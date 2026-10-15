@@ -1,8 +1,9 @@
-import { ImageBackground, Pressable, StyleSheet, View } from 'react-native';
+import { imageUrl } from '../../services/profileService';
+import { Image, ImageBackground, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { TripPlanView } from '../TripPlanView';
-import { ActivityMap } from '../ActivityMap';
+import { RouteMap } from '../RouteMap';
 import { Activity } from '../../data/activities';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { colors, radii, shadows, typography } from '../../theme';
@@ -62,14 +63,14 @@ export function ActivityMatchCard({ preview = false, favorite = false, onFavorit
           <PreferencesSummary value={activity.participantPreferences} />
           <DetailSection title="Host hoạt động">
             <View style={styles.hostDetail}>
-              <View style={styles.hostAvatarLarge}><Text style={styles.hostInitialLarge}>{activity.host.charAt(0)}</Text></View>
+              <View style={styles.hostAvatarLarge}>{activity.hostAvatarUrl ? <Image source={{ uri: imageUrl(activity.hostAvatarUrl) }} style={{ width: 44, height: 44, borderRadius: 22 }} /> : <Text style={styles.hostInitialLarge}>{activity.host.charAt(0)}</Text>}</View>
               <View style={styles.hostDetailCopy}><View style={styles.hostNameRow}><Text style={styles.hostDetailName}>{activity.host}</Text></View><Text style={styles.hostDetailMeta}>{activity.hostRating > 0 ? `★ ${activity.hostRating.toFixed(1)}` : 'Chưa có đánh giá'} • {activity.hostCompletedActivities} hoạt động đã hoàn tất</Text></View>
               <Ionicons color={colors.textMuted} name="chevron-forward" size={19} />
             </View>
           </DetailSection>
           {activity.requirements.length > 0 && <DetailSection title="Lưu ý">{activity.requirements.map((item) => <Bullet key={item} text={item} />)}</DetailSection>}
           <DetailSection title="Kế hoạch dự kiến"><TripPlanView activityId={activity.id} itinerary={activity.itinerary} plan={activity.plan} planLink={activity.planLink} planFile={activity.planFile} preview={preview} /></DetailSection>
-          {activity.coordinates && <DetailSection title="Bản đồ địa điểm"><ActivityMap point={activity.coordinates} /></DetailSection>}
+          {activity.coordinates && <DetailSection title="Bản đồ địa điểm"><RouteMap point={activity.coordinates} /></DetailSection>}
           {Boolean(activity.images?.length) && <DetailSection title="Ảnh hoạt động"><View style={[styles.photoRow, { flexWrap: 'wrap' }]}>{activity.images!.map((source, index) => <ImageBackground accessibilityLabel={`Ảnh hoạt động ${index + 1}`} imageStyle={styles.photoImage} key={index} resizeMode="cover" source={source} style={[styles.photo, { flex: undefined, flexGrow: 0, flexShrink: 0, flexBasis: '31%', width: '31%' }]} />)}</View></DetailSection>}
         </View>
       </View>

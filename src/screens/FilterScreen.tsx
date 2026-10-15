@@ -1,3 +1,4 @@
+import { placeRegionFields } from '../services/mapsService';
 import { ComponentProps, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,7 +83,7 @@ export function FilterSheet({ saving = false, saveError, initialFilters = defaul
       </FilterSection>
       <FilterSection icon="location-outline" subtitle="Chọn khu vực hoặc tìm quanh một vị trí" title="Khu vực">
         <ActivityLocationFields filter province={filters.province} district={filters.district} ward={filters.ward} onChange={patch => setFilters(current => ({ ...current, ...patch }))} />
-        <View style={{ gap: 12, marginTop: 16 }}><LocationField value={filters.coordinates} onChange={coordinates => setFilters(current => ({ ...current, coordinates, radiusEnabled: coordinates ? current.radiusEnabled : false }))} radiusKm={filters.radiusEnabled ? filters.distance : undefined} />
+        <View style={{ gap: 12, marginTop: 16 }}><LocationField value={filters.coordinates} onChange={coordinates => setFilters(current => ({ ...current, coordinates, radiusEnabled: coordinates ? current.radiusEnabled : false }))} radiusKm={filters.radiusEnabled ? filters.distance : undefined} onPlaceSelected={place => { const fields = placeRegionFields(place, filters.province); setFilters(current => ({ ...current, ...(fields.province ? { province: fields.province } : {}), district: fields.district, ward: fields.ward })); }} />
         <View style={styles.sliderHeader}><Text style={styles.sliderLabel}>Chỉ tìm trong bán kính</Text><Switch accessibilityLabel="Lọc theo bán kính" value={filters.radiusEnabled} onValueChange={radiusEnabled => setFilters(current => ({ ...current, radiusEnabled }))} /></View></View>
         {filters.radiusEnabled && !filters.coordinates && <Text style={styles.allHint}>Bán kính đã được lưu. Chọn vị trí cho phiên này để tiếp tục.</Text>}
         <SelectionField label="Bán kính tìm kiếm" options={[1, 5, 10, 20, 50, 100, 200].map(value => ({ value: String(value), label: `${value} km` }))} selected={[String(filters.distance)]} onChange={values => setFilters(current => ({ ...current, distance: Number(values[0] || 10) }))} />

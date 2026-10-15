@@ -13,5 +13,6 @@ export function ActivityMap(props: ActivityMapProps) {
     window.addEventListener('message', receive);
     return () => window.removeEventListener('message', receive);
   }, [editable, onChange, source]);
-  return <iframe ref={ref} title={props.editable ? 'Chọn điểm trên bản đồ' : 'Bản đồ hoạt động'} src={source} style={{ border: 0, borderRadius: 16, width: '100%', height: 280 }} />;
+  useEffect(() => { ref.current?.contentWindow?.postMessage({ type: 'gomate-map-route', route: props.route ?? null }, new URL(source, window.location.href).origin); }, [props.route, source]);
+  return <iframe ref={ref} title={props.editable ? 'Chọn điểm trên bản đồ' : 'Bản đồ hoạt động'} src={source} onLoad={() => ref.current?.contentWindow?.postMessage({ type: 'gomate-map-route', route: props.route ?? null }, new URL(source, window.location.href).origin)} style={{ border: 0, borderRadius: 16, width: '100%', height: 280 }} />;
 }

@@ -7,7 +7,7 @@ export function ActivityLocationFields({ province, district, ward, onChange, fil
   return <View style={{ gap: 14 }}>
     <StringSelectionField label="Tỉnh / thành phố" options={filter ? ['Tất cả', ...regionOptions] : regionOptions} value={province} onChange={value => onChange({ province: value || (filter ? 'Tất cả' : ''), district: filter ? 'Tất cả' : '', ward: '' })} />
     {province && province !== 'Tất cả' && <><StringSelectionField label="Quận / khu vực (tùy chọn)" options={filter ? ['Tất cả', ...districtsFor(province)] : districtsFor(province)} value={district} onChange={value => onChange({ district: value || (filter ? 'Tất cả' : '') })} emptyLabel={filter ? 'Tất cả' : 'Chọn địa danh quen thuộc'} />
-    <StringSelectionField label="Phường / xã (tùy chọn)" options={filter ? ['Tất cả', ...wardsFor(province)] : wardsFor(province)} value={ward || ''} onChange={value => onChange({ ward: value === 'Tất cả' ? '' : value })} emptyLabel={filter ? 'Tất cả' : 'Chọn phường / xã'} />
-    <Text style={{ color: colors.textMuted, fontSize: 12 }}>Quận/khu vực là địa danh tham khảo. Phường/xã dùng danh sách hiện tại của tỉnh/thành phố.</Text></>}
+      <StringSelectionField label="Phường / xã (tùy chọn)" options={filter ? ['Tất cả', ...wardsFor(province)] : wardsFor(province)} value={ward || ''} onChange={value => onChange({ ward: value === 'Tất cả' ? '' : value })} emptyLabel={filter ? 'Tất cả' : 'Chọn phường / xã'} />
+      <Text style={{ color: colors.textMuted, fontSize: 12 }}></Text></>}
   </View>;
 }

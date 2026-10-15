@@ -129,7 +129,6 @@ function InfoLine({ icon, text }: { icon: IconName; text: string }) { return tex
 export function UserProfileScreen({ onEdit, onPreview, onVerification, onReviews, onMyActivities, onNotifications, onSettings }: { onEdit: () => void; onPreview: () => void; onVerification: () => void; onReviews: () => void; onMyActivities: () => void; onNotifications: () => void; onSettings: () => void }) {
   const remote = useProfile(), profile = remote.profile;
   const menu: { label: string; icon: IconName; action: () => void }[] = [
-    { label: 'Chỉnh sửa hồ sơ', icon: 'create-outline', action: onEdit }, { label: 'Xem trước hồ sơ', icon: 'eye-outline', action: onPreview },
     { label: 'Xác minh tài khoản', icon: 'shield-checkmark-outline', action: onVerification }, { label: 'Điểm đánh giá của tôi', icon: 'star-outline', action: onReviews },
     { label: 'Hoạt động của tôi', icon: 'calendar-outline', action: onMyActivities }, { label: 'Thông báo', icon: 'notifications-outline', action: onNotifications }, { label: 'Cài đặt', icon: 'settings-outline', action: onSettings },
   ];
@@ -138,6 +137,7 @@ export function UserProfileScreen({ onEdit, onPreview, onVerification, onReviews
       <View style={styles.card}>{profile.coverUrl && <Image source={{ uri: imageUrl(profile.coverUrl) }} style={{ width: '100%', aspectRatio: 8 / 3, borderRadius: 16, marginBottom: 12 }} />}<View style={styles.avatarArea}>{profile.avatarUrl ? <Image source={{ uri: imageUrl(profile.avatarUrl) }} style={styles.avatar} /> : <View style={styles.avatar}><Text style={styles.initial}>{profile.name.charAt(0)}</Text></View>}<Text style={styles.profileName}>{profile.name}</Text>{profile.username ? <Text style={styles.note}>@{profile.username}</Text> : null}<Text>{profile.location || 'Chưa chọn khu vực'}</Text></View>
         {!profile.profileComplete && <Text style={styles.note}>Cần bổ sung: {profile.missingFields.map(key => missingFieldLabels[key] || key).join(', ')}.</Text>}
         <Text style={styles.note}>{profile.bio || 'Chia sẻ một chút về bạn với người đồng hành.'}</Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>{([{ label: 'Chỉnh sửa hồ sơ', icon: 'create-outline', action: onEdit }, { label: 'Xem trước hồ sơ', icon: 'eye-outline', action: onPreview }] as const).map(item => <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} onPress={item.action} style={{ flex: 1, backgroundColor: colors.primarySoft, borderRadius: 14, padding: 12, alignItems: 'center', gap: 7 }}><Ionicons name={item.icon} size={20} color={colors.primary} /><Text style={[styles.link, { textAlign: 'center' }]}>{item.label}</Text></Pressable>)}</View>
       </View>
       <View style={styles.menu}>{menu.map(item => <Pressable accessibilityRole="button" key={item.label} onPress={item.action} style={styles.menuRow}><View style={styles.menuIcon}><Ionicons name={item.icon} size={22} color={colors.primary} /></View><Text style={styles.menuLabel}>{item.label}</Text><Ionicons name="chevron-forward" size={18} color={colors.textMuted} /></Pressable>)}</View>
     </>}

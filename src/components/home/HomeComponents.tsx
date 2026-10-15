@@ -1,3 +1,4 @@
+import { ProfileAvatar } from '../ProfileAvatar';
 import { UnreadDot } from '../UnreadDot';
 import { ComponentProps } from 'react';
 import { Image, ImageBackground, Pressable, StyleSheet, View } from 'react-native';
@@ -48,7 +49,7 @@ export function NextActivityCard({ activity, onGroup, onPlan }: { activity: Acti
           <Text style={styles.nextTitle}>{activity.title}</Text>
           <ActivityMeta icon="calendar-outline" text={`${activity.time} – 21:00`} />
           <ActivityMeta icon="location" text={`${activity.location} • ${activity.distance}`} />
-          <View style={styles.memberRow}><AvatarStack /><Text style={styles.memberText}>{activity.members} thành viên</Text></View>
+          <View style={styles.memberRow}><AvatarStack activity={activity} /><Text style={styles.memberText}>{activity.members} thành viên</Text></View>
           <View style={styles.nextActions}>
             <Pressable onPress={onPlan} style={styles.secondaryAction}><Ionicons color={colors.primary} name="calendar-clear-outline" size={20} /><Text style={styles.secondaryActionText}>Xem kế hoạch</Text></Pressable>
             <Pressable onPress={onGroup} style={styles.primaryAction}><Ionicons color={colors.white} name="chatbubble-ellipses-outline" size={19} /><Text style={styles.primaryActionText}>Vào nhóm</Text></Pressable>
@@ -79,7 +80,7 @@ export function ActivityScheduleItem({ activity, status, time, onPress }: { acti
     <Pressable onPress={onPress} style={styles.scheduleItem}>
       {time && <View style={styles.scheduleTime}><Text style={styles.scheduleTimeText}>{time}</Text></View>}
       <Image resizeMode="cover" source={activity.image} style={styles.scheduleImage} />
-      <View style={styles.scheduleCopy}><Text numberOfLines={1} style={styles.scheduleTitle}>{activity.title}</Text><View style={styles.scheduleMeta}><Ionicons color={colors.textMuted} name="location" size={13} /><Text numberOfLines={1} style={styles.scheduleMetaText}>{activity.location}</Text></View><View style={styles.scheduleBottom}><AvatarStack compact /><Text style={styles.scheduleMembers}>{activity.members}</Text><View style={styles.statusPill}><Text style={styles.statusText}>{status}</Text></View></View></View>
+      <View style={styles.scheduleCopy}><Text numberOfLines={1} style={styles.scheduleTitle}>{activity.title}</Text><View style={styles.scheduleMeta}><Ionicons color={colors.textMuted} name="location" size={13} /><Text numberOfLines={1} style={styles.scheduleMetaText}>{activity.location}</Text></View><View style={styles.scheduleBottom}><AvatarStack activity={activity} compact /><Text style={styles.scheduleMembers}>{activity.members}</Text><View style={styles.statusPill}><Text style={styles.statusText}>{status}</Text></View></View></View>
       <Ionicons color={colors.textMuted} name="chevron-forward" size={19} />
     </Pressable>
   );
@@ -106,9 +107,9 @@ function ActivityMeta({ icon, text }: { icon: IconName; text: string }) {
   return <View style={styles.nextMeta}><Ionicons color={colors.white} name={icon} size={17} /><Text style={styles.nextMetaText}>{text}</Text></View>;
 }
 
-function AvatarStack({ compact = false }: { compact?: boolean }) {
-  const size = compact ? 22 : 34;
-  return <View style={styles.avatarStack}>{[0, 1, 2, 3].map((item) => <Image key={item} source={require('../../assets/profile-avatar.png')} style={[styles.memberAvatar, { height: size, marginLeft: item === 0 ? 0 : compact ? -7 : -10, width: size }]} />)}</View>;
+function AvatarStack({ activity, compact = false }: { activity: Activity; compact?: boolean }) {
+  const size = compact ? 22 : 34, count = Math.min(4, Math.max(0, Number(activity.members.split('/')[0]) || 0));
+  return <View style={styles.avatarStack}>{Array.from({ length: count }, (_, index) => <View key={activity.memberAvatars?.[index]?.userId || index} style={{ marginLeft: index === 0 ? 0 : compact ? -7 : -10, borderWidth: 1.5, borderColor: 'white', borderRadius: size }}><ProfileAvatar size={size} uri={activity.memberAvatars?.[index]?.avatarUrl} name={activity.memberAvatars?.[index]?.name || 'Người đi cùng'} /></View>)}</View>;
 }
 
 const styles = StyleSheet.create({

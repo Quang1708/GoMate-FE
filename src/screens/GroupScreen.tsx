@@ -39,7 +39,7 @@ export function GroupScreen({ activity, onBack, onStart, onLeft, initialTab = 'c
     {activeTab === 'chat' ? <ActivityChat activityId={activity.id} onBack={onBack} /> : <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
       {activeTab === 'plan' && <ActivityPlanPanel activityId={activity.id} />}
       {activeTab === 'members' && <MembersPanel activity={current} onLeft={onLeft} />}
-      {activeTab === 'manage' && isHost && <ActivityManagementPanel activityId={activity.id} onMembers={() => setTab('members')} onProgress={onStart} onDeleted={onLeft} onChanged={remote.setData} />}
+      {activeTab === 'manage' && isHost && <ActivityManagementPanel activityId={activity.id} onProgress={onStart} onDeleted={onLeft} onChanged={remote.setData} />}
     </ScrollView>}
     {remote.error ? <Text accessibilityRole="alert" style={{ color: colors.danger, padding: 10 }}>{remote.error}</Text> : null}
   </SafeAreaView>;

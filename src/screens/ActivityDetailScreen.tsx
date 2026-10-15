@@ -8,7 +8,7 @@ import { Text } from '../components/LocalizedText';
 import { GradientButton } from '../components/GradientButton';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { TripPlanView } from '../components/TripPlanView';
-import { ActivityMap } from '../components/ActivityMap';
+import { RouteMap } from '../components/RouteMap';
 import { Activity } from '../data/activities';
 import { colors, layout, radii } from '../theme';
 import { genderOptions, religionOptions } from '../components/ActivityChoices';
@@ -39,7 +39,7 @@ export function ActivityDetailScreen({ activity, error, isHost = false, onBack, 
             <Info icon="wallet-outline" label="Chi phí dự kiến" value={activity.estimatedCost} />
           </View>
 
-          {activity.coordinates && <ActivityMap point={activity.coordinates} />}
+          {activity.coordinates && <RouteMap point={activity.coordinates} />}
           <Pressable onPress={onViewPeople} style={styles.hostCard}>
             <View style={styles.hostAvatar}><Text style={styles.hostInitial}>{activity.host.charAt(0)}</Text></View>
             <View style={styles.hostCopy}>

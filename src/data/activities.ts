@@ -1,7 +1,8 @@
 import { ImageSourcePropType } from 'react-native';
 
 export type Activity = {
-  version?: number; reservedSeats?: number; costNote?: string; itinerary?: import('../services/planService').ItineraryStep[]; planLink?: string; planFile?: import('../services/planService').PlanFile | null;
+  memberAvatars?: { userId: string; name: string; avatarUrl?: string | null }[];
+  version?: number; reservedSeats?: number; companions?: { name: string; note: string }[]; hostAvatarUrl?: string | null; costNote?: string; itinerary?: import('../services/planService').ItineraryStep[]; planLink?: string; planFile?: import('../services/planService').PlanFile | null;
   organizerType?: 'personal' | 'business';
   coordinates?: import('../services/locationService').Coordinates | null;
   id: string;

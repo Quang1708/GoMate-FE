@@ -33,8 +33,10 @@
 Validation: `npm run test:community:web`, `npm run test:trip:web`, `npm run test:web`,
 `npm run test:integration`, and `node --test tests/native-session.test.cjs`.
 
-Limits: no physical device was attached for keyboard/GPS/permission QA. Chat media,
-Excel row parsing, identity-document verification, payments/Plus and a separate business
+Chat media and companion cards are now connected; see `CHAT_AND_RELEASE_GAPS.md` for
+current upload limits, endpoints and release follow-ups.
+
+Limits: no physical device was attached for keyboard/GPS/permission QA. Excel row parsing, identity-document verification, payments/Plus and a separate business
 website are outside these daily account flows. Google provider setup remains deferred
 at the user's request. No production deployment, provider credentials or live account
 roles are changed by this work.

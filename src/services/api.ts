@@ -57,10 +57,10 @@ export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
 
-export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function api<T>(path: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
   const token = session?.accessToken;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), typeof options.body === 'string' && options.body.length > 1000000 ? 120000 : 15000);
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? (typeof options.body === 'string' && options.body.length > 1000000 ? 120000 : 15000));
   try {
     const response = await fetch(`${apiBaseUrl}${path}`, {
       ...options, signal: controller.signal,

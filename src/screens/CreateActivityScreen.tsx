@@ -1,5 +1,8 @@
-import { ComponentProps, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { deleteActivityDraft, loadActivityDraft, restoreDraftPhotos, saveActivityDraft } from '../services/activityDraftService';
+import { placeRegionFields } from '../services/mapsService';
+import { AddressAutocomplete } from '../components/AddressAutocomplete';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -50,7 +53,7 @@ function draftFromActivity(activity?: ActivityDto, province?: string): ActivityD
   const date = (iso: string) => { const [year, month, day] = local(iso).slice(0, 10).split('-'); return `${day}/${month}/${year}`; };
   return { ...createInitialDraft(), organizerType: activity.organizerType || 'personal', coordinates: activity.coordinates ? { longitude: activity.coordinates.coordinates[0], latitude: activity.coordinates.coordinates[1] } : null, name: activity.title, description: activity.description, category: activity.category,
     date: date(activity.startsAt), endDate: date(activity.endsAt || activity.startsAt), startTime: local(activity.startsAt).slice(11, 16), endTime: local(activity.endsAt || activity.startsAt).slice(11, 16),
-    province: activity.province || '', district: activity.district || '', ward: activity.ward || '', address: activity.address || activity.location, reservedSeats: activity.reservedSeats ?? 0, itinerary: activity.itinerary?.length ? activity.itinerary : (activity.plan || []).map((title, index) => ({ id: `legacy-${index}`, date: local(activity.startsAt).slice(0, 10), time: local(activity.startsAt).slice(11, 16), title, place: '', note: '' })), planLink: activity.planLink || '', planFile: activity.planFile, costNote: activity.costNote || '', meetingPoint: activity.meetingPoint || '',
+    province: activity.province || '', district: activity.district || '', ward: activity.ward || '', address: activity.address || activity.location, reservedSeats: activity.reservedSeats ?? 0, companions: activity.companions ?? [], itinerary: activity.itinerary?.length ? activity.itinerary : (activity.plan || []).map((title, index) => ({ id: `legacy-${index}`, date: local(activity.startsAt).slice(0, 10), time: local(activity.startsAt).slice(11, 16), title, place: '', note: '' })), planLink: activity.planLink || '', planFile: activity.planFile, costNote: activity.costNote || '', meetingPoint: activity.meetingPoint || '',
     registrationDeadline: activity.registrationDeadline ? `${date(activity.registrationDeadline)} · ${local(activity.registrationDeadline).slice(11, 16)}` : '',
     minParticipants: String(activity.minParticipants || 2), maxParticipants: String(activity.maxParticipants), participantPreferences: activity.participantPreferences || emptyPreferences,
     requirements: (activity.requirements || []).join('\n'), scheduleNote: (activity.plan || []).join('\n'),
@@ -68,7 +71,40 @@ export function CreateActivityScreen({ onCreated, initialActivity, onCancel }: {
   const [draft, setDraft] = useState(() => draftFromActivity(initialActivity, defaultRegion));
   const [customCategory, setCustomCategory] = useState(false);
   const [error, setError] = useState<string>();
-  const setField: SetField = (key, value) => setDraft((current) => ({ ...current, [key]: value }));
+  const [draftLoading, setDraftLoading] = useState(!initialActivity), [draftLoadError, setDraftLoadError] = useState(''), [draftRetry, setDraftRetry] = useState(0);
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
+  const [draftSaving, setDraftSaving] = useState(false), [draftNotice, setDraftNotice] = useState(''), [discarding, setDiscarding] = useState(false);
+  const draftVersion = useRef(0), draftLock = useRef(false), draftRevision = useRef(0);
+  const editingId = initialActivity?.id;
+  useEffect(() => {
+    if (editingId) return;
+    let alive = true;
+    void loadActivityDraft().then(saved => {
+      if (!alive) return;
+      if (saved) {
+        draftVersion.current = saved.version; setHasSavedDraft(true);
+        setDraft(current => ({ ...current, ...saved.state.data, financialConfig: { ...current.financialConfig, ...saved.state.data.financialConfig }, photos: restoreDraftPhotos(saved.state.data.photos) }));
+        setStep(saved.state.step); setCustomCategory(saved.state.customCategory); setDraftNotice(`Đã khôi phục bản nháp · Bước ${saved.state.step}/4`);
+      }
+      setDraftLoadError(''); setDraftLoading(false);
+    }).catch(reason => { if (alive) { setDraftLoadError(reason instanceof Error ? reason.message : 'Chưa tải được bản nháp.'); setDraftLoading(false); } });
+    return () => { alive = false; };
+  }, [editingId, draftRetry]);
+  const setField: SetField = (key, value) => { draftRevision.current++; setDraftNotice(''); setDraft((current) => ({ ...current, [key]: value })); };
+  const storeDraft = async () => {
+    if (draftLock.current || publishing.current || fileBusy) return;
+    draftLock.current = true; const revision = draftRevision.current; setDraftSaving(true); setError(undefined);
+    try { const saved = await saveActivityDraft({ step, customCategory, data: draft }, draftVersion.current); draftVersion.current = saved.version; setHasSavedDraft(true); setDraftNotice(draftRevision.current === revision ? `Đã lưu bản nháp · Bước ${step}/4` : 'Đã lưu bản nháp; có thay đổi mới chưa lưu.'); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Chưa lưu được bản nháp.'); }
+    finally { draftLock.current = false; setDraftSaving(false); }
+  };
+  const discardDraft = async () => {
+    if (draftLock.current) return;
+    draftLock.current = true; setDraftSaving(true);
+    try { if (draftVersion.current) await deleteActivityDraft(draftVersion.current); draftVersion.current = 0; setHasSavedDraft(false); setDraft(createInitialDraft(defaultRegion)); setStep(1); setCustomCategory(false); setDraftNotice(''); setDiscarding(false); setError(undefined); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Chưa xóa được bản nháp.'); setDiscarding(false); }
+    finally { draftLock.current = false; setDraftSaving(false); }
+  };
 
   const pickPhoto = async () => {
     try {
@@ -80,13 +116,13 @@ export function CreateActivityScreen({ onCreated, initialActivity, onCancel }: {
       for (const asset of result.assets) {
         if (!asset.base64 || (asset.fileSize ?? 0) > 10 * 1024 * 1024 || asset.base64.length * 3 / 4 - (asset.base64.endsWith('==') ? 2 : asset.base64.endsWith('=') ? 1 : 0) > 10 * 1024 * 1024) throw new Error('Mỗi ảnh tối đa 10 MB. Vui lòng chọn lại.');
       }
-      setDraft(current => ({ ...current, photos: [...current.photos, ...result.assets.map(asset => ({ uri: asset.uri, base64: asset.base64! }))].slice(0, 6) }));
+      draftRevision.current++; setDraftNotice(''); setDraft(current => ({ ...current, photos: [...current.photos, ...result.assets.map(asset => ({ uri: asset.uri, base64: asset.base64! }))].slice(0, 6) }));
       setError(undefined);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không chọn được ảnh.'); }
   };
 
   const next = async () => {
-    if (fileBusy || publishing.current) return;
+    if (fileBusy || publishing.current || draftLock.current) return;
     setError(undefined);
     try { validateActivityDraft(draft, Math.min(step, 4)); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Invalid input'); return; }
     if (step === 3) { try { validateActivityDraft(draft, 4); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Chi phí không hợp lệ'); return; } }
@@ -95,24 +131,28 @@ export function CreateActivityScreen({ onCreated, initialActivity, onCancel }: {
     publishing.current = true; setBusy(true);
     try {
       const created = await publishActivityDraft({ ...draft, cover: draft.photos[0] }, initialActivity?.id);
+      if (!initialActivity && draftVersion.current) { try { await deleteActivityDraft(draftVersion.current); draftVersion.current = 0; setHasSavedDraft(false); setDraftNotice(''); } catch { console.warn('Activity published; saved draft cleanup needs retry.'); } }
       onCreated(created); setStep(1); setDraft(createInitialDraft(defaultRegion)); setCustomCategory(false);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không đăng được hoạt động'); }
     finally { publishing.current = false; setBusy(false); }
   };
 
+  if (draftLoading || draftLoadError) return <View style={{ flex: 1, padding: 24, gap: 16, alignItems: 'center', justifyContent: 'center' }}>{draftLoading ? <ActivityIndicator color={colors.primary} /> : <><Text accessibilityRole="alert">{draftLoadError}</Text><Pressable onPress={() => { setDraftLoading(true); setDraftRetry(value => value + 1); }}><Text style={{ color: colors.primary }}>Tải lại bản nháp</Text></Pressable></>}</View>;
   return <View style={styles.screen}>
-    <View style={styles.header}><View><Text style={styles.title}>{initialActivity ? 'Chỉnh sửa hoạt động' : 'Tạo hoạt động'}</Text><Text style={styles.subtitle}>Bước {step}/4 · {stepNames[step - 1]}</Text></View><View style={styles.stepBadge}><Text style={styles.stepBadgeText}>{step}</Text></View></View>
+    <View style={styles.header}><View><Text style={styles.title}>{initialActivity ? 'Chỉnh sửa hoạt động' : 'Tạo hoạt động'}</Text><Text style={styles.subtitle}>Bước {step}/4 · {stepNames[step - 1]}</Text></View><View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>{!initialActivity && <Pressable accessibilityRole="button" accessibilityLabel="Lưu nháp" disabled={draftSaving || busy || fileBusy} onPress={() => void storeDraft()} style={{ padding: 9, borderRadius: 12, backgroundColor: colors.primarySoft }}><Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>{draftSaving ? 'Đang lưu...' : 'Lưu nháp'}</Text></Pressable>}<View style={styles.stepBadge}><Text style={styles.stepBadgeText}>{step}</Text></View></View></View>
+    {!initialActivity && <View style={{ paddingHorizontal: 18, gap: 6 }}>{draftNotice ? <Text accessibilityLiveRegion="polite" style={{ color: colors.primary, fontSize: 12 }}>{draftNotice}</Text> : null}{hasSavedDraft && <Pressable accessibilityRole="button" disabled={draftSaving || busy} onPress={() => setDiscarding(true)}><Text style={{ color: colors.textMuted, fontSize: 12 }}>Bỏ bản nháp và tạo mới</Text></Pressable>}</View>}
+    <Modal visible={discarding} transparent animationType="fade" onRequestClose={() => setDiscarding(false)}><View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(24,18,45,.3)', padding: 24 }}><View style={{ width: '100%', maxWidth: 380, padding: 24, gap: 20, borderRadius: 22, backgroundColor: colors.surface }}><Text style={{ fontSize: 18, fontWeight: '700' }}>Bỏ bản nháp này?</Text><Text>Nội dung, ảnh và kế hoạch đã lưu trong bản nháp sẽ được xóa.</Text><Pressable accessibilityRole="button" disabled={draftSaving} onPress={() => void discardDraft()}><Text style={{ color: colors.danger }}>Xóa bản nháp</Text></Pressable><Pressable accessibilityRole="button" onPress={() => setDiscarding(false)}><Text style={{ color: colors.primary }}>Tiếp tục chỉnh sửa</Text></Pressable></View></View></Modal>
     <View style={styles.progress}><View style={[styles.progressFill, { width: `${step * 25}%` }]} /></View>
     <ScrollView ref={scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><View style={styles.page}>
       {onCancel && <Pressable onPress={onCancel}><Text style={styles.editText}>Hủy chỉnh sửa</Text></Pressable>}
       {initialActivity && <View><Text style={styles.noteText}>{draft.replacePhotos ? 'Ảnh hiện tại sẽ được xóa khi lưu.' : 'Ảnh hiện tại được giữ lại. Chọn ảnh mới để thay thế bộ ảnh.'}</Text><Pressable onPress={() => setField('replacePhotos', !draft.replacePhotos)}><Text style={styles.editText}>{draft.replacePhotos ? 'Giữ lại ảnh hiện tại' : 'Xóa bộ ảnh hiện tại'}</Text></Pressable></View>}
       {step === 1 && <BasicStep customCategory={customCategory} draft={draft} onCustomCategory={() => { setCustomCategory(true); setField('category', ''); }} onPickPhoto={pickPhoto} onPresetCategory={(category) => { setCustomCategory(false); setField('category', category); }} onRemovePhoto={(index) => setField('photos', draft.photos.filter((_, itemIndex) => itemIndex !== index))} setField={setField} />}
-      {step === 2 && <WhenWhereStep draft={draft} setField={setField} />}
-      {step === 3 && <View style={{ gap: 18 }}><GroupStep draft={draft} setField={setField} editing={Boolean(initialActivity)} /><FinancialStep draft={draft} setField={setField} /><View style={styles.card}><TripPlanEditor value={{ itinerary: draft.itinerary || [], planLink: draft.planLink || '', planAttachment: draft.planAttachment, planFile: draft.planFile }} onChange={patch => setDraft(current => ({ ...current, ...patch }))} startDate={draft.date} endDate={draft.endDate || draft.date} startTime={draft.startTime} endTime={draft.endTime} onBusyChange={setFileBusy} /></View></View>}
+      {step === 2 && <WhenWhereStep draft={draft} setField={setField} onSuggestionsLayout={() => scroll.current?.scrollToEnd({ animated: true })} />}
+      {step === 3 && <View style={{ gap: 18 }}><GroupStep draft={draft} setField={setField} editing={Boolean(initialActivity)} onCompanionChange={(index, patch) => { draftRevision.current++; setDraftNotice(''); setDraft(current => ({ ...current, companions: Array.from({ length: current.reservedSeats ?? 0 }, (_, at) => ({ name: '', note: '', ...current.companions?.[at], ...(at === index ? patch : {}) })) })); }} /><FinancialStep draft={draft} setField={setField} /><View style={styles.card}><TripPlanEditor value={{ itinerary: draft.itinerary || [], planLink: draft.planLink || '', planAttachment: draft.planAttachment, planFile: draft.planFile }} onChange={patch => { draftRevision.current++; setDraftNotice(''); setDraft(current => ({ ...current, ...patch })); }} startDate={draft.date} endDate={draft.endDate || draft.date} startTime={draft.startTime} endTime={draft.endTime} onBusyChange={setFileBusy} /></View></View>}
       {step === 4 && <ActivityDraftPreview draft={draft} initialActivity={initialActivity} host={{ id: profile?.id || '', name: profile?.name || '' }} />}
 
     </View></ScrollView>
-    <View style={styles.footerShell}>{error && <View accessibilityRole="alert" style={[styles.errorBanner, { marginHorizontal: 18, marginBottom: 0, maxWidth: layout.maxWidth - 36, width: '92%', alignSelf: 'center' }]}><Ionicons color={colors.danger} name="alert-circle" size={18} /><Text style={styles.errorText}>{error}</Text></View>}<View style={styles.footer}>{step > 1 && <Pressable onPress={() => { setError(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); setStep((current) => current - 1); }} style={styles.backButton}><Text style={styles.backText}>Quay lại</Text></Pressable>}<GradientButton disabled={busy || fileBusy} label={busy ? 'Đang lưu...' : fileBusy ? 'Đang đọc tệp...' : step === 4 ? (initialActivity ? 'Lưu thay đổi' : 'Đăng hoạt động') : 'Tiếp tục'} onPress={next} style={styles.nextButton} trailing={<Ionicons color={colors.white} name={step === 4 ? 'checkmark' : 'arrow-forward'} size={19} />} /></View></View>
+    <View style={styles.footerShell}>{error && <View accessibilityRole="alert" style={[styles.errorBanner, { marginHorizontal: 18, marginBottom: 0, maxWidth: layout.maxWidth - 36, width: '92%', alignSelf: 'center' }]}><Ionicons color={colors.danger} name="alert-circle" size={18} /><Text style={styles.errorText}>{error}</Text></View>}<View style={styles.footer}>{step > 1 && <Pressable onPress={() => { setError(undefined); scroll.current?.scrollTo({ y: 0, animated: false }); setStep((current) => current - 1); }} style={styles.backButton}><Text style={styles.backText}>Quay lại</Text></Pressable>}<GradientButton disabled={busy || fileBusy || draftSaving} label={busy ? 'Đang lưu...' : fileBusy ? 'Đang đọc tệp...' : step === 4 ? (initialActivity ? 'Lưu thay đổi' : 'Đăng hoạt động') : 'Tiếp tục'} onPress={next} style={styles.nextButton} trailing={<Ionicons color={colors.white} name={step === 4 ? 'checkmark' : 'arrow-forward'} size={19} />} /></View></View>
   </View>;
 }
 
@@ -124,21 +164,21 @@ function BasicStep({ customCategory, draft, onCustomCategory, onPickPhoto, onPre
   </View>;
 }
 
-function WhenWhereStep({ draft, setField }: StepProps) {
+function WhenWhereStep({ draft, setField, onSuggestionsLayout }: StepProps & { onSuggestionsLayout: () => void }) {
   return <View><StepHeading icon="calendar-outline" title="Thời gian & địa điểm" note="Cung cấp lịch chi tiết và điểm gặp rõ ràng để mọi người dễ sắp xếp." /><View style={styles.card}>
     <DateRangeField start={draft.date} end={draft.endDate} onChange={(date, endDate) => { setField('date', date); setField('endDate', endDate); }} />
     <View style={styles.twoColumns}><View style={styles.column}><TimeField label="Bắt đầu" value={draft.startTime} onChange={(value) => setField('startTime', value)} /></View><View style={styles.column}><TimeField label="Kết thúc" value={draft.endTime} onChange={(value) => setField('endTime', value)} /></View></View>
     <RegistrationDeadlineField draft={draft} onChange={patch => { setField('registrationDeadline', patch.registrationDeadline || ''); setField('deadlineHoursBefore', patch.deadlineHoursBefore); setField('deadlineCustom', patch.deadlineCustom); }} />
     <ActivityLocationFields province={draft.province} district={draft.district} ward={draft.ward} onChange={patch => { if (patch.province !== undefined) { setField('province', patch.province); setField('coordinates', null); } if (patch.district !== undefined) setField('district', patch.district); if (patch.ward !== undefined) setField('ward', patch.ward); }} />
     <Text style={{ color: colors.textSecondary }}>Ghim địa điểm để mọi người thấy khoảng cách chính xác.</Text>
-    <LocationField value={draft.coordinates} onChange={point => setField('coordinates', point)} />
-    <FormField icon="location-outline" label="Địa chỉ" onChangeText={(value) => setField('address', value)} placeholder="Số nhà, tên đường hoặc địa điểm" value={draft.address} />
+    <LocationField value={draft.coordinates} onChange={point => setField('coordinates', point)} onPlaceSelected={place => { const fields = placeRegionFields(place, draft.province); if (fields.province) setField('province', fields.province); setField('district', fields.district); setField('ward', fields.ward); setField('address', fields.address); }} />
+    <AddressAutocomplete value={draft.address} bias={draft.coordinates} onSuggestionsLayout={onSuggestionsLayout} onChangeText={value => { setField('address', value); setField('coordinates', null); }} onSelect={place => { const fields = placeRegionFields(place, draft.province); if (fields.province) setField('province', fields.province); setField('district', fields.district); setField('ward', fields.ward); setField('address', fields.address); setField('coordinates', place.point); }} />
     <FormField icon="navigate-outline" label="Điểm tập trung / hướng dẫn gặp mặt" onChangeText={(value) => setField('meetingPoint', value)} placeholder="Ví dụ: trước cổng chính, bàn số 8" value={draft.meetingPoint} />
 
   </View></View>;
 }
 
-function GroupStep({ draft, setField, editing }: StepProps & { editing: boolean }) { return <CreateGroupFields editing={editing} draft={draft} onChange={(patch) => { for (const key of Object.keys(patch) as (keyof ActivityDraft)[]) setField(key, patch[key]!); }} />; }
+function GroupStep({ draft, setField, editing, onCompanionChange }: StepProps & { editing: boolean; onCompanionChange: (index: number, patch: Partial<{ name: string; note: string }>) => void }) { return <CreateGroupFields onCompanionChange={onCompanionChange} editing={editing} draft={draft} onChange={(patch) => { for (const key of Object.keys(patch) as (keyof ActivityDraft)[]) setField(key, patch[key]!); }} />; }
 
 function FinancialStep({ draft, setField }: StepProps) {
   const config = draft.financialConfig;

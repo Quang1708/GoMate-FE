@@ -22,7 +22,7 @@ export type ActivityFinancialConfig = {
 };
 
 export type ActivityDraft = {
-  ward?: string; costNote?: string; reservedSeats?: number; initialFriendIds?: string[]; itinerary?: ItineraryStep[]; planLink?: string; planAttachment?: PlanAttachment | null; planFile?: PlanFile | null;
+  ward?: string; costNote?: string; reservedSeats?: number; companions?: { name: string; note: string }[]; hostAvatarUrl?: string | null; initialFriendIds?: string[]; itinerary?: ItineraryStep[]; planLink?: string; planAttachment?: PlanAttachment | null; planFile?: PlanFile | null;
   organizerType: 'personal' | 'business';
   coordinates?: import('./locationService').Coordinates | null;
   name: string;
@@ -52,7 +52,7 @@ export type ActivityDraft = {
 
 export function vietnamDate(date: string, time = '23:59') {
   const match = date.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!match || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error('Nhập ngày DD/MM/YYYY và giờ HH:mm.');
+  if (!match || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error('Vui lòng nhập ngày và giờ.');
   const iso = `${match[3]}-${match[2]}-${match[1]}T${time}:00+07:00`;
   const value = new Date(iso);
   if (!Number.isFinite(value.getTime()) || new Date(value.getTime() + 7 * 3600000).toISOString().slice(0, 10) !== iso.slice(0, 10)) throw new Error('Ngày không hợp lệ.');
@@ -123,7 +123,7 @@ export async function publishActivityDraft(draft: ActivityDraft, activityId?: st
     ...(draft.coordinates ? { coordinates: { type: 'Point', coordinates: [draft.coordinates.longitude, draft.coordinates.latitude] } } : activityId ? { coordinates: null } : {}),
     title: draft.name, description: draft.description, category: categories.includes(draft.category) ? draft.category : 'Khác',
     tags: categories.includes(draft.category) ? [] : [draft.category],
-    address: draft.address, province: draft.province, district: draft.district, ward: draft.ward || '', costNote: draft.costNote || '', reservedSeats: draft.reservedSeats ?? 0,
+    address: draft.address, province: draft.province, district: draft.district, ward: draft.ward || '', costNote: draft.costNote || '', reservedSeats: draft.reservedSeats ?? 0, companions: Array.from({ length: draft.reservedSeats ?? 0 }, (_, index) => draft.companions?.[index] ?? { name: '', note: '' }),
     ...(!activityId && draft.initialFriendIds?.length ? { initialFriendIds: draft.initialFriendIds } : {}),
     ...(draft.itinerary?.length ? { itinerary: draft.itinerary } : draft.itinerary ? { itinerary: [] } : {}),
     planLink: draft.planLink || '',

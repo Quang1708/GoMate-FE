@@ -4,6 +4,48 @@ Record decisions here when they materially affect architecture, dependencies,
 security, the data model, or product behavior. Keep the newest decision at the
 top. Small implementation details belong only in `DEVELOPMENT_LOG.md`.
 
+### 2026-10-16 - Server-backed create drafts and an inline chat attachment panel
+
+- **Status:** Accepted.
+- **Decision:** Store one explicit unfinished create draft per authenticated account on BE, including editor step and original photo/Excel content. Use owner-scoped versioned metadata plus GridFS rather than browser storage, temporary file URLs or a single BSON document. Restore automatically, confirm discard and remove only the saved version after publication.
+- **Decision:** Drafts permit incomplete fields and stay outside published activities/Match; publication still uses full validation and existing media uploads. Conflicting sessions do not overwrite each other. Multiple drafts/edit drafts/background autosave are not included.
+- **Decision:** Keep a single composer mounted while replacing the keyboard with an inline icon panel. Default blank input to one row; preserve the same text/attachment state during keyboard/panel transitions.
+- **Decision:** Home participant photos come from actual approved-member profiles. Missing/error portraits and reserved companions use a neutral silhouette, never a fixed sample person.
+
+### 2026-10-16 - VIETMAP lookup with Mapbox rendering and routes
+
+- **Status:** Accepted at the user's request; supersedes the Mapbox-only lookup part of the decision below.
+- **Decision:** Prefer VIETMAP Autocomplete v4/Place v4 when `VIETMAP_API_KEY` exists. Keep Mapbox GL JS/Directions and existing points, filters, activity/chat persistence and bridge unchanged. Use new administrative format (`display_type=1`) for current wards/provinces.
+- **Decision:** Keep the Services key on BE only. Expose only search-provider identity/availability in public config; fixed upstream URLs, per-account/session selections, validation, rate/time limits and sanitized errors protect the lookup flow. No VIETMAP requests are made directly by FE or map WebView.
+- **Decision:** Attribute lookup results to VIETMAP and preserve Mapbox's own map/route attribution. Do not silently call Mapbox Geocoding after a configured VIETMAP provider fails. Mapbox permanent address geocoding remains available only on installations without a VIETMAP key.
+- **Validation:** Supplied key passed live Autocomplete/Place v4; the hybrid live test passed Mapbox tiles and both route modes. FE/BE/MongoDB tests cover inline suggestions, current ward auto-fill and persisted activity/chat points.
+
+### 2026-10-16 - Replace Google Maps with Mapbox
+
+- **Status:** Accepted; supersedes the Google Maps decision below at the user's request.
+- **Decision:** Use Mapbox GL JS 3.33.0/streets-v12 in the shared BE map document, plus authenticated Geocoding v6 and Directions v5. Preserve the existing iframe/WebView contracts, GPS, radius and manual selection. Keep OSM when no token is configured; remove Google Maps runtime configuration/documents and keep OAuth separate.
+- **Decision:** Use permanent geocoding for address results that can be saved to activities/chat. Do not persist temporary Search Box/POI data. Address search is intentionally labeled as address search, not a POI directory; broader POI persistence needs suitable Mapbox rights.
+- **Decision:** Store the user-provided public token only in ignored BE `.env`. Expose it to the map SDK through public config, never embed the actual value in source, tests, docs or FE builds. Limit authenticated API calls, sanitize failures and scope provider CSP to the map page.
+- **Decision:** Keep at most 500 account/session-bound address selections for five minutes; details consumes one selection without another provider request. This is a process-local cache; clients must search again if an instance changes. Geocoding billing remains per request, not per session.
+- **Validation:** Real token API calls and real SDK/tiles passed in desktop Chrome, including selection, radius, pin, routes and attribution; deterministic FE/BE/MongoDB tests cover activity/chat persistence. Mobile bundle export is not physical-device validation.
+
+### 2026-10-16 - Google Maps in the shared map document
+
+- **Status:** Superseded by Mapbox above.
+- **Decision:** Reuse the BE-hosted map page in web iframe and native WebView for Google Maps JavaScript. Keep the OSM document when no browser key is supplied; never silently draw Google Places/Routes data on OSM. Preserve Google attribution and the required walking-route beta notice.
+- **Decision:** Use separate restricted browser/server keys from BE configuration. The browser key is public by design; the server key stays in provider request headers on BE. Scope the Maps SDK CSP allowances to the map document and retain frame-origin restrictions.
+- **Decision:** Proxy only fixed, authenticated, validated Places (New) and Routes calls with rate/time limits and minimal field masks. Share a session token between debounced Autocomplete and Details. Support explicit GPS-based DRIVE/WALK calculations with polylines, rather than calling Routes for all Match results.
+- **Decision:** Confirm a selected place before updating activity/filter/chat drafts. Keep Match radius/straight-line distance semantics and manual coordinate selection. Do not persist autocomplete lists or route responses; review Google data retention and public Terms/Privacy before a wider release.
+- **Limit:** User-owned billing/key setup and live/physical-device verification are separate from stubbed-provider tests. No key, billing, deployment or OAuth setting is changed automatically. Setup is documented in `GOOGLE_MAPS_SETUP.md`.
+
+### 2026-10-15 - Private chat attachments and named companions
+
+- **Status:** Accepted.
+- **Decision:** Store bounded chat uploads as separate MongoDB Binary documents (10 MB/file, maximum 4/message). Authorize every upload/download/library read through current conversation access; bind sends to uploader and conversation. Expire unused uploads after 24 hours. Message retry IDs compare text, attachment metadata and location together. Same-owner attachments can be reused within the same conversation after editing a draft following an uncertain send outcome.
+- **Decision:** Keep companion name/note arrays aligned with reserved-seat capacity. Only group members can read them; only the host edits before start, using activity versions. Consuming reserved seats removes the corresponding initial companion entries atomically, without inventing authenticated identities. Names/notes are excluded from public activity responses.
+- **Decision:** Add SDK-compatible expo-video for on-demand playback. Camera permission is requested only when the user chooses to take a photo. GPS sharing sends an explicit snapshot, not background tracking. Existing Google provider and business website deferrals stand.
+- **Follow-up:** Move large-scale media to private object storage with thumbnails/transcoding and a durable cleanup policy before increasing limits. See `CHAT_AND_RELEASE_GAPS.md`.
+
 ### 2026-10-15 - Persisted accounts and real community actions
 
 - **Status:** Accepted.

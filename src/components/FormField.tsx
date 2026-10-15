@@ -13,6 +13,8 @@ type FormFieldProps = {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
+  editable?: boolean;
+  maxLength?: number;
   placeholder?: string;
   secureTextEntry?: boolean;
   keyboardType?: ComponentProps<typeof TextInput>['keyboardType'];
@@ -26,6 +28,8 @@ export function FormField({
   label,
   value,
   onChangeText,
+  editable,
+  maxLength,
   placeholder,
   secureTextEntry,
   keyboardType,
@@ -46,6 +50,8 @@ export function FormField({
           keyboardType={keyboardType}
           multiline={multiline}
           onChangeText={onChangeText}
+          editable={editable}
+          maxLength={maxLength}
           placeholder={placeholder ? translate(placeholder) : undefined}
           placeholderTextColor={colors.textMuted}
           secureTextEntry={secureTextEntry}

@@ -3,6 +3,185 @@
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
 
+## 2026-10-16 - Account drafts, companion typing, inline chat tools and member portraits
+
+### Summary
+
+- Fix companion input sizing and apply per-person edits against current state. Add explicit create-draft saving/resume at the same editor step, with photos/Excel, account isolation, retry/conflict feedback, confirmed discard and publication cleanup.
+- Keep the chat composer visible above an inline attachment panel that replaces the keyboard; default to a single compact input row, put the plus on the right and remove attachment-panel headers/limit copy. Preserve typed text and file/location flows.
+- Replace the fixed participant portrait stack with current profile avatars and neutral silhouettes for missing/failed images/reserved seats. Add five full demo friends to the requested account through the backend script.
+
+### Files changed
+
+- `src/screens/{CreateActivityScreen,ChatScreen}.tsx`, `src/components/{CompanionCards,CreateGroupFields,ChatContent,ProfileAvatar}.tsx`, `src/components/home/HomeComponents.tsx`.
+- `src/services/{activityDraftService,api,activityApi}.ts`, `src/data/activities.ts`, `tests/{trip-social.web,mapbox-maps.web}.cjs`, `docs/DRAFTS_AND_CHAT_COMPOSER.md`.
+
+### Verification
+
+- BE full suite: 93 passed; final focused draft/friend/member-avatar checks passed after additional validation. Large draft round trip exceeded the BSON document limit and used GridFS successfully.
+- Trip UI integration passed real keyboard typing, save/resume after route changes/reload, media/Excel, incomplete drafts, confirmed/cancelled discard and publication cleanup, compact composer geometry, retained input above icons, chat/media and profile/fallback home avatars; no browser runtime errors.
+- Web smoke and FE/BE service integration passed. Maps UI integration passed unchanged lookup/map/filter/chat-location flows with provider doubles. Typecheck/lint passed; Expo Doctor 21/21. Web and Android/iOS bundle exports passed.
+- Configured database verified: five new demo profiles, accepted friendships and different avatar URLs for `pminh2004@gmail.com`; all five portrait URLs returned HTTP 200.
+
+### Remaining work
+
+- Physical-device keyboard/attachment-panel and WebView testing. One explicitly saved unfinished create draft per account; not background autosave or multiple-draft management. Production should reconcile GridFS orphans after interrupted writes.
+
+## 2026-10-16 - Use VIETMAP autocomplete with Mapbox maps/routes
+
+### Summary
+
+- Switch configured address/POI lookup to VIETMAP Autocomplete v4/Place v4 while preserving Mapbox map rendering and Directions. Apply to inline activity address suggestions, modal lookup in forms/filters and chat sharing.
+- Show VIETMAP lookup attribution and generic search labels; map/route attribution remains Mapbox. Preserve existing debounce, stale-response protection, coordinate clearing on manual edits and manual pin selection.
+- Configure the supplied Services key only in ignored BE `.env`; expose search-provider metadata without its key. Update hybrid setup instructions, fallback behavior and release notes.
+
+### Files changed
+
+- `src/services/mapsService.ts`, `src/components/{PlacePicker,AddressAutocomplete,MapAttribution,MapAttribution.web}.tsx`.
+- `tests/{mapbox-maps.web.cjs,mapbox-live.web.cjs}`, `.env.example`, README, Maps setup/release docs and `docs/DECISIONS.md`.
+
+### Verification
+
+- Supplied VIETMAP key: real Autocomplete v4 and Place v4 returned HTTP 200, including current ward/province names and valid coordinates. `npm run test:maps:live`: passed hybrid lookup, key exclusion from public config, Mapbox driving/walking and real SDK/tiles/radius/pin/route/attribution checks.
+- `npm run test:maps:web`: passed FE/BE/MongoDB integration with provider doubles, including VIETMAP attribution, current ward auto-fill, inline race/error/empty states, activity and chat persistence, Mapbox modes and responsive layouts. Asserted no Mapbox Geocoding calls.
+- `npm run test:integration`: passed. BE `npm test`: 91 tests passed, including provider secrecy, ownership/session binding, opaque ref_id round-trip, retryable errors and independent VIETMAP/Mapbox configuration.
+- `npm run typecheck`, `npm run lint`: passed without warnings after import cleanup. `npx expo-doctor`: 21/21. Web and Android/iOS bundle exports passed.
+
+### Remaining work
+
+- Physical-device WebView/keyboard/GPS and deployed domain/token verification. Provider availability, quota and search coverage depend on the respective accounts/services.
+
+## 2026-10-16 - Suggest addresses directly while typing
+
+### Summary
+
+- Add inline Mapbox address suggestions under the activity Address input for both creation and editing, without opening a separate picker. Select a result to fill the address, matching region fields and coordinates.
+- Debounce typing by 450 ms, suppress short queries, ignore late results, and show loading, empty, retry and dismiss states. Scroll suggestions into view and bound the results list so it remains usable on small screens. Keep manual entry available; editing an address clears its old coordinates to prevent publishing a mismatched pin.
+- Avoid searches for externally filled/confirmed addresses; keep existing map picker, GPS and chat flows.
+
+### Files changed
+
+- `src/components/AddressAutocomplete.tsx`, `src/components/FormField.tsx`, `src/screens/CreateActivityScreen.tsx`.
+- `tests/mapbox-maps.web.cjs`, `docs/MAPBOX_SETUP.md`.
+
+### Verification
+
+- `npm run typecheck`, `npm run lint`, `npx expo-doctor`: passed; doctor 21/21. Web export passed.
+- `npm run test:maps:web`: passed actual FE/BE/MongoDB with Mapbox doubles. Covers inline debounce/selection, old-coordinate removal, empty results, denial/retry and out-of-order responses, plus activity publication, map modes, filter and chat regressions. No browser runtime errors.
+- New UI uses the existing Maps endpoints; no provider/config/backend changes or extra live provider requests were needed in this task.
+
+### Remaining work
+
+- Physical-device keyboard/tap/GPS verification. Address search remains address geocoding, not a POI directory.
+
+## 2026-10-16 - Switch maps to Mapbox and verify the supplied token live
+
+### Summary
+
+- Replace Google map dependencies with Mapbox GL JS, permanent address geocoding and driving/walking Directions in activity creation, Match, filters, details and chat locations. Rename provider-specific UI/types to reusable names; keep public attribution and an OSM external link/fallback.
+- Configure the supplied public token only in ignored backend `.env`. Verify real map style/tiles and APIs; no real token is written into source/tests/docs. Preserve unrelated profile/chat work and Google OAuth settings.
+- Confirm activity address/province and manually adjusted coordinates persist after publishing; shared chat locations remain durable. Use permanent address results rather than temporary Search Box data; document address-only search and device/deployment limits.
+
+### Files changed
+
+- `src/services/mapsService.ts`, `src/components/{PlacePicker,MapAttribution,RouteMap,LocationField,ActivityMap}.tsx`, `src/components/MapAttribution.web.tsx`, chat and form callers.
+- `tests/{mapbox-maps.web.cjs,mapbox-live.web.cjs,fixtures/mapbox-maps.js}`, `package.json`, `.env.example`, README and map/release documentation. Supersede previous uncommitted Google map fixture/UI files.
+
+### Verification
+
+- Live provider: map style, permanent Geocoding, DRIVE and WALK endpoints returned 200 with the supplied token. Opt-in `npm run test:maps:live` passed real GL JS rendering/tiles, click pin, radius, route overlay/clear, logo and attribution at 390/1000px; screenshots in the temporary test artifact folder.
+- `npm run test:maps:web`: passed actual FE + BE + MongoDB with provider doubles, including activity publication/persisted coordinates, GPS/modes, errors/retry, chat persistence and 390/768/1440px layouts.
+- `npm run test:web`, `npm run test:trip:web`, `npm run test:integration`: passed existing auth/profile, creation, lifecycle, companion, chat, attachment and OSM/GPS regressions.
+- `npm run typecheck`, `npm run lint`, `npx expo-doctor`: passed; doctor 21/21. Expo web and Android/iOS bundle exports passed. Backend full suite passed 88 tests; focused Maps suite passed 3 tests after final malformed-response/cache/fallback checks.
+
+### Remaining work
+
+- Test WebView/GPS on physical Android/iOS and deployed domains. Mapbox request/map-load usage may be billable; permanent geocoding and persisted POI search have different eligibility/rights. Current search is addresses, not a saved POI directory.
+
+## 2026-10-16 - Google Maps, Places and Routes integration
+
+### Summary
+
+- Add a Google Maps JavaScript map document using the existing iframe/WebView bridge, Advanced Markers, radius circles and route polyline messages. Preserve OSM when not configured and scope provider CSP changes to the map document.
+- Add debounced Vietnam place search/confirmation with a shared Autocomplete/Details session, provider attribution and address/province matching for activity/filter forms. Allow selecting a place to share in chat and opening chat locations in an in-app map.
+- Connect explicit GPS-based driving/walking route calculation, distance/time estimates and external Google Maps directions. Clear stale route overlays on a new attempt; include Google's required walking-route notice. Keep Match geographic radius/distance behavior.
+- Protect server-side provider calls with authentication, strict contracts, fixed URLs, minimal field masks, rate/time limits and sanitized errors. Add two-key setup instructions without modifying user keys/billing.
+
+### Files changed
+
+- New `src/services/mapsService.ts`, `src/components/{GooglePlacePicker,GoogleAttribution,GoogleAttribution.web,RouteMap}.tsx`.
+- Existing map components/types, location fields, create/filter/detail/Match/chat screens and components, package script and FE env example/README.
+- `tests/google-maps.web.cjs`, test-only SDK fixture, `docs/GOOGLE_MAPS_SETUP.md`, release-gap/decision/log docs and the corresponding BE maps API/document/config/tests.
+
+### Verification
+
+- Typecheck/lint passed; Expo Doctor 21/21 passed. Web and Android/iOS bundle exports passed.
+- `npm run test:maps:web`: passed with actual FE/BE/MongoDB and stubbed Google SDK/API; checks picker/session/auto-fill, pin/polyline bridge, modes/GPS, no-route/denial/retry, chat and 390/768/1440px layouts. No browser runtime errors.
+- Existing `npm run test:web`, `npm run test:trip:web`, `npm run test:integration`: passed, including OSM fallback and prior profile/chat/activity behavior.
+- BE full `npm test`: 88 passed; focused Maps tests passed after bounded provider validation changes.
+- `git diff --check`: passed.
+
+### Remaining work
+
+- BE key-presence check found both Maps keys unset. User must enable billing/APIs, create/restrict keys, put them in BE `.env`, restart BE and reload app, following `GOOGLE_MAPS_SETUP.md`.
+- Live Google calls, origin/IP restrictions and physical-device WebView/GPS behavior are not verified by provider doubles. Production terms/privacy, retention policy, custom map styling/ID and provider quotas remain setup/release work.
+- Existing deferred OAuth/business website and other non-map release gaps remain unchanged.
+
+## 2026-10-15 - Limit profile actions to the account profile page
+
+### Summary
+
+- Keep Edit Profile and Preview Profile in the avatar section of the account profile page containing Settings.
+- Revert the added host-avatar prop/mapping in activity creation preview per the user's clarification. Preserve the other chat, companion, Match and profile improvements.
+- Remove the browser assertion that required the reverted preview avatar; retain the profile-hero layout assertions.
+
+### Files changed
+
+- `src/components/ActivityDraftPreview.tsx`, `src/screens/CreateActivityScreen.tsx`, `tests/trip-social.web.cjs`, `docs/CHAT_AND_RELEASE_GAPS.md` and this log.
+
+### Verification
+
+- `npm run typecheck`, `npm run lint`: passed. `npx expo-doctor`: 21/21 passed.
+- Web export and `npm run test:trip:web`: passed, including profile-hero actions and activity preview; no browser runtime errors.
+- `git diff --check`: passed.
+- Activity draft preview component restored to its pre-task content.
+
+### Remaining work
+
+- Existing release gaps remain documented in `CHAT_AND_RELEASE_GAPS.md`.
+
+## 2026-10-15 - Private chat media, companion cards and profile/Match refinements
+
+### Summary
+
+- Move edit/preview actions into the avatar hero. Show the current host avatar in the creation preview and real Match/detail responses, including legacy avatar fallback.
+- Add photo/video/camera/file/GPS attachment selection, removable draft items, content-aware send retries, image/video viewers, authenticated downloads and a paged per-conversation media/file/link/location library. Preserve immediate early group chat and existing access checks.
+- Add named companion cards in creation and Members, with host editing, persisted private name/note fields, version protection and atomic conversion of reserved places to account membership. Show which named places an add-friends action will consume. Remove the duplicate member action from the group management tab.
+- Build additional diffuse lighting, lavender/blue color fields and curved layers behind Match while preserving the existing 5% card reduction.
+- Install expo-video using Expo CLI, enable explicit photo-camera permission, and align Expo to the SDK 57.0.30 patch required by Expo Doctor. Add release-gap recommendations and API documentation without enabling deferred providers.
+
+### Files changed
+
+- New `src/components/{ChatContent,CompanionCards}.tsx`, `src/services/chatContent.ts`, and corresponding BE chat/companion APIs, persistence, indexes and tests.
+- Chat/profile/activity screens, `AddActivityFriends`, creation fields/preview, Match primitives/background, `ScreenHeader`, service/domain types, Expo config and package/lock.
+- `tests/trip-social.web.cjs`, local CC0 MDN video fixture/source attribution, `docs/CHAT_AND_RELEASE_GAPS.md`, account notes and decision log.
+
+### Verification
+
+- `npm run typecheck`, `npm run lint`: passed. `npx expo-doctor`: 21/21 passed.
+- `npm run test:integration`: passed against real FE services and temporary MongoDB-backed BE.
+- `npm run test:trip:web`: passed two-account creation/preview, companion save/conversion, early group/direct chat, image/video/file/GPS messages, library filters/download, reload and 390/768/1440px layouts; no browser runtime errors.
+- `npm run test:web`, `npm run test:community:web`: passed existing authentication/profile/Match/map/lifecycle and community/privacy/notification flows.
+- `node --test tests/native-session.test.cjs`: 4 passed. Web and Android/iOS exports passed; no native folders were generated.
+- BE full `npm test`: 86 passed, including content validation, privacy, byte ranges, retries, member revocation and named companions.
+- `git diff --check`: passed.
+
+### Remaining work
+
+- Native binaries must be rebuilt for expo-video/camera configuration. No physical device was attached; camera/GPS/keyboard and real-device playback QA remain.
+- Media is bounded to 10 MB/file and 4/message. Private object storage/thumbnails/transcoding, durable offline sends, voice recording/calls and live location are follow-ups, not included capabilities.
+- Google Maps Platform setup, push while the app is closed, Excel row import and other priorities are detailed in `CHAT_AND_RELEASE_GAPS.md`. Google Login provider setup and the separate business website remain deferred as instructed.
+
 ## 2026-10-15 - Package shared workspace launcher for Git publication
 
 ### Summary

@@ -17,7 +17,7 @@ export function ScreenHeader({ title, onBack, right, subtitle }: ScreenHeaderPro
     <View style={styles.header}>
       <View style={styles.side}>
         {onBack && (
-          <Pressable accessibilityLabel="Quay lại" onPress={onBack} style={styles.backButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Quay lại" onPress={onBack} style={styles.backButton}>
             <Ionicons color={colors.text} name="chevron-back" size={24} />
           </Pressable>
         )}

@@ -13,12 +13,14 @@
     "test:integration": "node --test tests/backend.integration.cjs",
     "test:web": "node tests/web.smoke.cjs",
     "test:trip:web": "node tests/trip-social.web.cjs",
-    "test:community:web": "node tests/community.web.cjs"
+    "test:community:web": "node tests/community.web.cjs",
+    "test:maps:web": "node tests/mapbox-maps.web.cjs",
+    "test:maps:live": "node tests/mapbox-live.web.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@react-native-google-signin/google-signin": "^16.1.5",
-    "expo": "~57.0.29",
+    "expo": "~57.0.30",
     "expo-constants": "~57.0.22",
     "expo-document-picker": "~57.0.3",
     "expo-file-system": "~57.0.7",
@@ -29,6 +31,7 @@
     "expo-secure-store": "~57.0.4",
     "expo-sharing": "~57.0.23",
     "expo-status-bar": "~57.0.1",
+    "expo-video": "~57.0.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",

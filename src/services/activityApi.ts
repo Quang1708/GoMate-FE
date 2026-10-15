@@ -5,9 +5,10 @@ import { imageUrl } from './profileService';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'left' | 'removed';
 export type ActivityDto = {
+  memberAvatars?: { userId: string; name: string; avatarUrl?: string | null }[];
   hostRating?: number | null; hostRatingCount?: number; hostCompletedActivities?: number;
   scheduleConfirmedAt?: string | null; scheduleConfirmedBy?: string | null;
-  version?: number; address?: string; province?: string; district?: string; ward?: string; costNote?: string; reservedSeats?: number; itinerary?: import('./planService').ItineraryStep[]; planLink?: string; planFile?: import('./planService').PlanFile | null;
+  version?: number; address?: string; province?: string; district?: string; ward?: string; costNote?: string; reservedSeats?: number; companions?: { name: string; note: string }[]; hostAvatarUrl?: string | null; itinerary?: import('./planService').ItineraryStep[]; planLink?: string; planFile?: import('./planService').PlanFile | null;
   organizerType?: 'personal' | 'business'; coordinates?: { type: 'Point'; coordinates: [number, number] } | null;
   id: string; hostId: string; hostName: string; title: string; description: string; category: string;
   location: string; startsAt: string; endsAt?: string; estimatedCost: number; maxParticipants: number;
@@ -33,7 +34,7 @@ export async function allPages<T>(path: string): Promise<T[]> {
 
 export function toActivity(row: ActivityDto, requestStatus?: RequestStatus): Activity {
   return {
-    version: row.version, reservedSeats: row.reservedSeats ?? 0, costNote: row.costNote || '', itinerary: row.itinerary || [], planLink: row.planLink || '', planFile: row.planFile,
+    memberAvatars: row.memberAvatars, version: row.version, hostAvatarUrl: row.hostAvatarUrl, companions: row.companions, reservedSeats: row.reservedSeats ?? 0, costNote: row.costNote || '', itinerary: row.itinerary || [], planLink: row.planLink || '', planFile: row.planFile,
     organizerType: row.organizerType ?? 'personal', coordinates: row.coordinates ? { longitude: row.coordinates.coordinates[0], latitude: row.coordinates.coordinates[1] } : null,
     id: row.id, hostId: row.hostId, title: row.title, host: row.hostName, location: row.location,
     startsAt: row.startsAt, endsAt: row.endsAt, requestStatus, backendStatus: row.status ?? 'published',

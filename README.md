@@ -164,3 +164,11 @@ Luồng tạo hoạt động 4 bước, kế hoạch chuyến đi và bạn bè/
 Giao diện tạo bài, quản lý host và chat mới: [docs/ACTIVITY_CHAT_AND_MANAGEMENT.md](docs/ACTIVITY_CHAT_AND_MANAGEMENT.md).
 
 Cài đặt, thông báo, đánh giá và an toàn: [docs/ACCOUNT_COMPLETION.md](docs/ACCOUNT_COMPLETION.md).
+
+## Mapbox
+
+Bản đồ, GPS, ghim, bán kính và tuyến đường dùng Mapbox; gợi ý địa chỉ/địa điểm dùng VIETMAP Autocomplete/Place v4 qua BE khi có `VIETMAP_API_KEY`. Đặt `MAPBOX_ACCESS_TOKEN` (public `pk.` token) trong `GoMate-BE/.env`; không cần Google Maps key. Xem [hướng dẫn Mapbox](docs/MAPBOX_SETUP.md). Khi không cấu hình token, bản đồ OSM/GPS vẫn có thể dùng. Chạy `npm.cmd run test:maps:web` để kiểm tra FE/BE với provider giả lập; `npm.cmd run test:maps:live` kiểm tra API và bản đồ thật bằng token local (có gọi dịch vụ tính phí).
+
+## Bản nháp và khung chat
+
+Bấm **Lưu nháp** ở màn tạo để lưu nội dung đang làm theo tài khoản và tiếp tục đúng bước lần sau. Xem [bản nháp, người đi cùng và khung chat](docs/DRAFTS_AND_CHAT_COMPOSER.md).
