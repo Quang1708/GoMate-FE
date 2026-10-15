@@ -18,5 +18,5 @@ export function useRemote<T>(loader: () => Promise<T>, initial: T) {
     const timer = setTimeout(() => void reload(), 0);
     return () => { clearTimeout(timer); invalidate(); };
   }, [reload, invalidate]);
-  return { data, loading: loading || loadedFor !== loader, error, reload };
+  return { data, setData, loading: loading || loadedFor !== loader, error, reload };
 }

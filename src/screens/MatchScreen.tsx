@@ -3,16 +3,18 @@ import { Animated, PanResponder, ScrollView, StyleSheet, useWindowDimensions, Vi
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MatchBackground } from '../components/match/MatchBackground';
 import { ActivityMatchCard, MatchActions, MatchHeader, MatchState } from '../components/match/MatchPrimitives';
-import { MatchMoreMenu, NotInterestedSheet, ReportActivitySheet, SafetySheet, UndoSheet } from '../components/match/MatchSheets';
+import { MatchMoreMenu, NotInterestedSheet, ReportActivitySheet, SafetySheet } from '../components/match/MatchSheets';
 import { Activity, activities } from '../data/activities';
 import { colors, layout } from '../theme';
 import { Text } from '../components/LocalizedText';
 
-type SheetName = 'more' | 'report' | 'safety' | 'undo' | 'notInterested' | null;
+type SheetName = 'more' | 'report' | 'safety' | 'notInterested' | null;
 
 type MatchScreenProps = {
   error?: string;
+  locationLabel?: string; favoriteIds?: string[]; onFavorite?: (activity: Activity) => Promise<void>; onFeedback?: (activity: Activity, outcome: 'skip' | 'dislike') => void;
   activityItems?: Activity[];
   onFilterPress: () => void;
   onMatched?: (activity: Activity) => Promise<boolean>;
@@ -20,6 +22,7 @@ type MatchScreenProps = {
   state?: 'ready' | 'loading' | 'location-required' | 'network-error' | 'activity-unavailable';
 };
 
+const MATCH_CARD_SCALE = 0.95;
 const HORIZONTAL_INTENT_DISTANCE = 7;
 const HORIZONTAL_INTENT_RATIO = 1.1;
 const FAST_SWIPE_DISTANCE = 24;
@@ -29,18 +32,18 @@ function isHorizontalGesture(dx: number, dy: number) {
   return Math.abs(dx) > HORIZONTAL_INTENT_DISTANCE && Math.abs(dx) > Math.abs(dy) * HORIZONTAL_INTENT_RATIO;
 }
 
-export function MatchScreen({ error, activityItems = activities, onFilterPress, onMatched, onBack, state = 'ready' }: MatchScreenProps) {
+export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite, onFeedback, activityItems = activities, onFilterPress, onMatched, onBack, state = 'ready' }: MatchScreenProps) {
   const { width } = useWindowDimensions();
+  const [cardHeight, setCardHeight] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastSkippedIndex, setLastSkippedIndex] = useState<number | null>(null);
-  const [undoUsed, setUndoUsed] = useState(false);
   const [sheet, setSheet] = useState<SheetName>(null);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [requestToast, setRequestToast] = useState(false);
   const [position] = useState(() => new Animated.ValueXY());
   const currentActivity = activityItems[currentIndex];
-  const canUndo = lastSkippedIndex !== null && !undoUsed;
+  const canUndo = lastSkippedIndex !== null && !isAnimating;
 
   useEffect(() => {
     if (!requestToast) return;
@@ -49,15 +52,17 @@ export function MatchScreen({ error, activityItems = activities, onFilterPress, 
   }, [requestToast]);
 
   const skipCurrent = useCallback(() => {
+    if (activityItems[currentIndex]) onFeedback?.(activityItems[currentIndex], 'skip');
     setLastSkippedIndex(currentIndex);
     setCurrentIndex((current) => current + 1);
     setSheet(null);
-  }, [currentIndex]);
+  }, [activityItems, currentIndex, onFeedback]);
 
   const requestCurrent = useCallback(async () => {
     if (!currentActivity) return;
     if (!onMatched || !await onMatched(currentActivity)) return;
     setCurrentIndex((current) => current + 1);
+    setLastSkippedIndex(null);
     setRequestToast(true);
     setSheet(null);
   }, [currentActivity, onMatched]);
@@ -110,23 +115,24 @@ export function MatchScreen({ error, activityItems = activities, onFilterPress, 
   const rotate = position.x.interpolate({ inputRange: [-width, 0, width], outputRange: ['-7deg', '0deg', '7deg'] });
 
   const undoSkip = () => {
-    if (lastSkippedIndex === null || undoUsed) return;
+    if (lastSkippedIndex === null || isAnimating) return;
     setCurrentIndex(lastSkippedIndex);
-    setUndoUsed(true);
+    setLastSkippedIndex(null);
     setSheet(null);
   };
 
   if (state !== 'ready') {
     const states = {
       loading: { icon: 'calendar-outline' as const, title: 'Đang tìm hoạt động phù hợp', message: 'GoMate đang chuẩn bị những gợi ý tốt nhất cho bạn.', action: undefined },
-      'location-required': { icon: 'location-outline' as const, title: 'Cần quyền truy cập vị trí', message: 'Bật vị trí để xem các hoạt động phù hợp đang diễn ra gần bạn.', action: 'Bật vị trí' },
+      'location-required': { icon: 'location-outline' as const, title: 'Chọn vị trí tìm kiếm', message: 'Dùng GPS hoặc chọn điểm trên bản đồ để tìm hoạt động theo khoảng cách và bán kính đã lưu.', action: 'Chọn vị trí' },
       'network-error': { icon: 'cloud-offline-outline' as const, title: 'Không thể kết nối', message: 'Kiểm tra kết nối mạng và thử lại sau ít phút.', action: 'Thử lại' },
       'activity-unavailable': { icon: 'calendar-outline' as const, title: 'Hoạt động không còn khả dụng', message: 'Hoạt động có thể đã đủ thành viên, bị hủy hoặc được host đóng.', action: 'Xem hoạt động tiếp theo' },
     };
     const currentState = states[state];
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.page}><MatchHeader onBack={onBack} onFilter={onFilterPress} /><MatchState action={currentState.action} icon={currentState.icon} message={currentState.message} onAction={currentState.action ? onFilterPress : undefined} title={currentState.title} /></View>
+        <MatchBackground />
+        <View style={styles.page}><MatchHeader distance={locationLabel} onBack={onBack} onFilter={onFilterPress} /><MatchState action={currentState.action} icon={currentState.icon} message={currentState.message} onAction={currentState.action ? onFilterPress : undefined} title={currentState.title} /></View>
       </SafeAreaView>
     );
   }
@@ -134,11 +140,11 @@ export function MatchScreen({ error, activityItems = activities, onFilterPress, 
   if (!currentActivity) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <MatchBackground />
         <View style={styles.page}>
-          <MatchHeader onBack={onBack} onFilter={onFilterPress} />
-          <MatchState action={canUndo ? 'Quay lại hoạt động vừa bỏ qua' : 'Điều chỉnh bộ lọc'} icon="calendar-outline" message="Hãy mở rộng khoảng cách, thời gian rảnh hoặc danh mục để tiếp tục Match." onAction={canUndo ? () => setSheet('undo') : onFilterPress} title="Không còn hoạt động phù hợp" />
+          <MatchHeader distance={locationLabel} onBack={onBack} onFilter={onFilterPress} />
+          <MatchState action={canUndo ? 'Quay lại hoạt động vừa bỏ qua' : 'Điều chỉnh bộ lọc'} icon="calendar-outline" message="Hãy mở rộng khoảng cách, thời gian rảnh hoặc danh mục để tiếp tục Match." onAction={canUndo ? undoSkip : onFilterPress} title="Không còn hoạt động phù hợp" />
         </View>
-        <UndoSheet onCancel={() => setSheet(null)} onConfirm={undoSkip} visible={sheet === 'undo'} />
         {requestToast && <RequestToast />}
       </SafeAreaView>
     );
@@ -146,13 +152,16 @@ export function MatchScreen({ error, activityItems = activities, onFilterPress, 
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <MatchBackground />
       <View style={styles.page}>
-        <MatchHeader onBack={onBack} onFilter={onFilterPress} />
+        <MatchHeader distance={locationLabel} onBack={onBack} onFilter={onFilterPress} />
         {error ? <Text style={{ color: colors.danger, padding: 14 }}>{error}</Text> : null}
         <View {...panResponder.panHandlers} style={styles.deck}>
           <ScrollView contentContainerStyle={styles.scrollContent} directionalLockEnabled scrollEnabled={!isSwiping} showsVerticalScrollIndicator={false}>
             <Animated.View style={{ transform: [...position.getTranslateTransform(), { rotate }] }}>
-              <ActivityMatchCard activity={currentActivity} canUndo={canUndo} onMore={() => setSheet('more')} onUndo={() => setSheet('undo')} />
+              <View onLayout={event => setCardHeight(event.nativeEvent.layout.height)} style={[styles.cardScale, { marginBottom: -cardHeight * (1 - MATCH_CARD_SCALE) }]}>
+                <ActivityMatchCard favorite={favoriteIds.includes(currentActivity.id)} onFavorite={() => void onFavorite?.(currentActivity)} activity={currentActivity} canUndo={canUndo} onMore={() => setSheet('more')} onUndo={undoSkip} />
+              </View>
             </Animated.View>
             <View style={styles.scrollSpacer} />
           </ScrollView>
@@ -169,10 +178,9 @@ export function MatchScreen({ error, activityItems = activities, onFilterPress, 
         onSafety={() => setSheet('safety')}
         visible={sheet === 'more'}
       />
-      <ReportActivitySheet onClose={() => setSheet(null)} visible={sheet === 'report'} />
+      <ReportActivitySheet key={currentActivity.id} activityId={currentActivity.id} onClose={() => setSheet(null)} visible={sheet === 'report'} />
       <SafetySheet onClose={() => setSheet(null)} visible={sheet === 'safety'} />
-      <UndoSheet onCancel={() => setSheet(null)} onConfirm={undoSkip} visible={sheet === 'undo'} />
-      <NotInterestedSheet category={currentActivity.category} onCancel={() => setSheet(null)} onConfirm={skipCurrent} visible={sheet === 'notInterested'} />
+      <NotInterestedSheet category={currentActivity.category} onCancel={() => setSheet(null)} onConfirm={() => { onFeedback?.(currentActivity, 'dislike'); setLastSkippedIndex(currentIndex); setCurrentIndex(currentIndex + 1); setSheet(null); }} visible={sheet === 'notInterested'} />
       {requestToast && <RequestToast />}
     </SafeAreaView>
   );
@@ -186,8 +194,9 @@ const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   page: { alignSelf: 'center', flex: 1, maxWidth: layout.maxWidth, width: '100%' },
   deck: { flex: 1 },
-  scrollContent: { paddingHorizontal: 14 },
-  scrollSpacer: { height: 12 },
+  cardScale: { transform: [{ scale: MATCH_CARD_SCALE }], transformOrigin: 'top center' },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 6 },
+  scrollSpacer: { height: 16 },
   toast: { alignItems: 'center', alignSelf: 'center', backgroundColor: colors.overlayHeavy, borderRadius: 18, bottom: 96, flexDirection: 'row', maxWidth: layout.maxWidth - 28, padding: 13, position: 'absolute', width: '92%' },
   toastIcon: { alignItems: 'center', backgroundColor: colors.primary, borderRadius: 14, height: 38, justifyContent: 'center', width: 38 },
   toastCopy: { flex: 1, marginHorizontal: 10 },

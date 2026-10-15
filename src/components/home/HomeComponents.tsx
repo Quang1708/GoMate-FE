@@ -1,3 +1,4 @@
+import { UnreadDot } from '../UnreadDot';
 import { ComponentProps } from 'react';
 import { Image, ImageBackground, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { Activity } from '../../data/activities';
 import { colors, radii, shadows, typography } from '../../theme';
+import { UserAvatar } from '../UserAvatar';
 import { BrandLogo } from '../BrandLogo';
 import { Text } from '../LocalizedText';
 
@@ -22,15 +24,14 @@ export type HomeAction = {
   onPress: () => void;
 };
 
-export function HomeHeader({ activityCount, onCalendarPress, onNotificationsPress, showGreeting = true }: { activityCount: number; onCalendarPress: () => void; onNotificationsPress: () => void; showGreeting?: boolean }) {
+export function HomeHeader({ activityCount, onCalendarPress, onNotificationsPress, onProfilePress, showGreeting = true }: { activityCount: number; onCalendarPress: () => void; onNotificationsPress: () => void; onProfilePress: () => void; showGreeting?: boolean }) {
   const { profile } = useProfile();
   return (
     <View>
       <View style={styles.headerRow}>
-        <BrandLogo compact />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><UserAvatar onPress={onProfilePress} /><BrandLogo compact /></View>
         <View style={styles.headerActions}>
-          <Pressable accessibilityLabel="Thông báo" onPress={onNotificationsPress} style={styles.notificationButton}><Ionicons color={colors.text} name="notifications-outline" size={23} /><View style={styles.notificationDot} /></Pressable>
-          <Image source={require('../../assets/profile-avatar.png')} style={styles.avatar} />
+          <Pressable accessibilityLabel="Thông báo" onPress={onNotificationsPress} style={styles.notificationButton}><Ionicons color={colors.text} name="notifications-outline" size={23} /><UnreadDot kind="notifications" style={styles.notificationDot} /></Pressable>
         </View>
       </View>
       {showGreeting && <><Text style={styles.greetingLabel}>Xin chào,</Text><Text style={styles.greetingName}>{profile?.name || 'Bạn'} 👋</Text><View style={styles.greetingMetaRow}><Text style={styles.greetingMeta}>{activityCount > 0 ? `Bạn có ${activityCount} hoạt động sắp tới` : 'Bạn chưa có hoạt động nào'}</Text>{activityCount > 0 && <Pressable onPress={onCalendarPress}><Text style={styles.calendarLink}>Xem lịch</Text></Pressable>}</View></>}

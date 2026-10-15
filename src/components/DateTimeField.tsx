@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './LocalizedText';
-import { FormField } from './FormField';
+import { PickerSheet, WheelColumn } from './ProfilePickers';
 import { colors } from '../theme';
 
 export function dateToIso(value: string) {
@@ -35,18 +35,25 @@ export function DateField({ label, value, onChange, allowPast = false }: { label
 }
 
 export function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [period, setPeriod] = useState<'Sáng' | 'Chiều' | 'Tối'>('Sáng');
-  const hours = period === 'Sáng' ? Array.from({ length: 12 }, (_, index) => index) : period === 'Chiều' ? [12, 13, 14, 15, 16, 17] : [18, 19, 20, 21, 22, 23];
-  return <View style={styles.field}><Text style={styles.label}>{label}</Text><Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => { const hour = Number(value.split(':')[0] || 9); setPeriod(hour < 12 ? 'Sáng' : hour < 18 ? 'Chiều' : 'Tối'); setOpen(true); }} style={styles.control}><Text>{value || 'Chọn giờ'} ◷</Text></Pressable>
-    <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}><View style={styles.backdrop}><View style={styles.modal}>
-      <Text style={styles.label}>{label}</Text><View style={styles.heading}>{(['Sáng', 'Chiều', 'Tối'] as const).map(item => <Pressable key={item} onPress={() => setPeriod(item)} style={[styles.control, period === item && styles.selected]}><Text>{item}</Text></Pressable>)}</View>
-      <ScrollView style={{ maxHeight: 260 }}><View style={styles.grid}>{hours.flatMap(hour => [0, 15, 30, 45].map(minute => {
-        const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-        return <Pressable key={time} style={[styles.time, value === time && styles.selected]} onPress={() => { onChange(time); setOpen(false); }}><Text>{time}</Text></Pressable>;
-      }))}</View></ScrollView>
-      <FormField label="Nhập giờ khác (HH:mm)" placeholder="09:15" value={value} onChangeText={onChange} />
-      <View style={styles.heading}><Pressable onPress={() => { onChange(''); setOpen(false); }}><Text style={styles.link}>Xóa giờ</Text></Pressable><Pressable onPress={() => setOpen(false)}><Text style={styles.link}>Xong</Text></Pressable></View>
+  const [open, setOpen] = useState(false), [hour, setHour] = useState('09'), [minute, setMinute] = useState('00');
+  return <View style={styles.field}><Text style={styles.label}>{label}</Text><Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => { const parts = /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value.split(':') : ['09', '00']; setHour(parts[0]); setMinute(parts[1]); setOpen(true); }} style={styles.control}><Text>{value || 'Chọn giờ'} ◷</Text></Pressable>
+    {open && <PickerSheet title={label} onClose={() => setOpen(false)}><View style={{ flexDirection: 'row', gap: 12 }}><WheelColumn label="Giờ" options={Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))} value={hour} onChange={setHour} /><WheelColumn label="Phút" options={Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))} value={minute} onChange={setMinute} /></View><View style={styles.heading}><Pressable accessibilityRole="button" onPress={() => { onChange(''); setOpen(false); }}><Text style={styles.link}>Xóa giờ</Text></Pressable><Pressable accessibilityRole="button" onPress={() => { onChange(`${hour}:${minute}`); setOpen(false); }}><Text style={styles.link}>Dùng giờ này</Text></Pressable></View></PickerSheet>}
+  </View>;
+}
+
+export function DateRangeField({ label = 'Ngày bắt đầu và kết thúc', start, end, onChange, allowPast = false }: { label?: string; start: string; end: string; onChange: (start: string, end: string) => void; allowPast?: boolean }) {
+  const [open, setOpen] = useState(false), [today] = useState(todayVietnam), [month, setMonth] = useState(todayVietnam().slice(0, 7));
+  const [range, setRange] = useState({ start: '', end: '' }), [phase, setPhase] = useState<'start' | 'end'>('start'), [jump, setJump] = useState(false);
+  const [year, monthNumber] = month.split('-').map(Number), count = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate(), offset = (new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay() + 6) % 7;
+  const move = (delta: number) => setMonth(new Date(Date.UTC(year, monthNumber - 1 + delta, 1)).toISOString().slice(0, 7));
+  const choose = (date: string) => { if (phase === 'start' || !range.start || date < range.start) { setRange({ start: date, end: '' }); setPhase('end'); } else { setRange(current => ({ ...current, end: date })); setPhase('start'); } };
+  return <View style={styles.field}><Text style={styles.label}>{label}</Text><Pressable accessibilityRole="button" accessibilityLabel={label} style={styles.control} onPress={() => { setRange({ start: dateToIso(start), end: dateToIso(end || start) }); setMonth((dateToIso(start) || today).slice(0, 7)); setPhase('start'); setJump(false); setOpen(true); }}><Text>{start ? `${start} → ${end || start}` : 'Chọn khoảng ngày'} ▦</Text></Pressable>
+    <Modal transparent animationType="fade" visible={open} onRequestClose={() => setOpen(false)}><View style={styles.backdrop}><View style={styles.modal}>
+      <Text style={styles.label}>{label}</Text><Text>{phase === 'start' ? 'Chạm ngày bắt đầu' : 'Chạm ngày kết thúc (có thể cùng ngày)'}</Text>
+      <View style={styles.heading}><Pressable accessibilityRole="button" accessibilityLabel="Tháng trước" onPress={() => move(-1)}><Text style={styles.link}>‹</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Chọn tháng và năm" onPress={() => setJump(!jump)}><Text style={styles.label}>Tháng {monthNumber}/{year}⌄</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Tháng sau" onPress={() => move(1)}><Text style={styles.link}>›</Text></Pressable></View>
+      {jump ? <><View style={{ flexDirection: 'row' }}><WheelColumn label="Tháng" options={Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))} value={String(monthNumber).padStart(2, '0')} onChange={value => setMonth(`${year}-${value}`)} /><WheelColumn label="Năm" options={Array.from({ length: 201 }, (_, i) => String(1900 + i))} value={String(year)} onChange={value => setMonth(`${value}-${String(monthNumber).padStart(2, '0')}`)} /></View><Pressable accessibilityRole="button" onPress={() => setJump(false)}><Text style={styles.link}>Xem lịch</Text></Pressable></> : <><View style={styles.grid}>{['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(day => <View key={day} style={styles.cell}><Text>{day}</Text></View>)}</View><View style={styles.grid}>{Array.from({ length: offset + count }, (_, index) => { const day = index - offset + 1, iso = `${month}-${String(day).padStart(2, '0')}`, disabled = day < 1 || (!allowPast && iso < today), selected = iso === range.start || iso === range.end, between = iso > range.start && iso < range.end; return <Pressable key={index} accessibilityRole="button" accessibilityLabel={day > 0 ? isoToDate(iso) : undefined} accessibilityState={{ selected }} disabled={disabled} onPress={() => choose(iso)} style={[styles.cell, between && { backgroundColor: colors.background }, selected && styles.selected]}><Text style={{ opacity: disabled ? 0.25 : 1, fontWeight: selected ? '700' : '400' }}>{day > 0 ? day : ''}</Text></Pressable>; })}</View></>}
+      <Text>{range.start ? isoToDate(range.start) : 'Bắt đầu'} → {range.end ? isoToDate(range.end) : 'Kết thúc'}</Text>
+      <View style={styles.heading}><Pressable accessibilityRole="button" onPress={() => setOpen(false)}><Text style={styles.link}>Đóng</Text></Pressable><Pressable accessibilityRole="button" disabled={!range.start || !range.end} onPress={() => { onChange(isoToDate(range.start), isoToDate(range.end)); setOpen(false); }}><Text style={[styles.link, (!range.start || !range.end) && { opacity: 0.4 }]}>Dùng khoảng ngày</Text></Pressable></View>
     </View></View></Modal>
   </View>;
 }

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors, control, layout, radii } from '../../theme';
 import { Text } from '../LocalizedText';
+import { reportActivity } from '../../services/communityService';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -19,49 +20,30 @@ export function MatchMoreMenu({ category, onClose, onHide, onNotInterested, onRe
   );
 }
 
-export function ReportActivitySheet({ onClose, visible }: { onClose: () => void; visible: boolean }) {
-  const [reason, setReason] = useState('');
+export function ReportActivitySheet({ activityId, onClose, visible }: { activityId: string; onClose: () => void; visible: boolean }) {
+  const [reason, setReason] = useState(''), [detail, setDetail] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [sent, setSent] = useState(false);
+  const submit = async () => { if (busy) return; setBusy(true); setError(''); try { await reportActivity(activityId, reason, detail); setSent(true); } catch (why) { setError(why instanceof Error ? why.message : 'Chưa gửi được báo cáo'); } finally { setBusy(false); } };
   const reasons = ['Nội dung không phù hợp', 'Thông tin sai sự thật', 'Quấy rối / thiếu an toàn', 'Hoạt động thương mại / quảng cáo', 'Trùng lặp nội dung', 'Lý do khác'];
   return (
     <BottomSheet onClose={onClose} visible={visible}>
       <SheetHeader icon="flag" onClose={onClose} title="Báo cáo hoạt động" />
       <Text style={styles.sheetHint}>Chọn lý do báo cáo</Text>
       <View style={styles.reasonList}>{reasons.map((item) => <Pressable key={item} onPress={() => setReason(item)} style={styles.reasonRow}><View style={[styles.radio, reason === item && styles.radioSelected]}>{reason === item && <View style={styles.radioDot} />}</View><Text style={styles.reasonText}>{item}</Text></Pressable>)}</View>
-      <TextInput maxLength={300} multiline placeholder="Mô tả thêm (tùy chọn)" placeholderTextColor={colors.textMuted} style={styles.reportInput} />
-      <Text style={styles.counter}>0/300</Text>
-      <PrimarySheetButton disabled={!reason} label="Gửi báo cáo" onPress={onClose} />
+      <TextInput accessibilityLabel="Mô tả báo cáo" value={detail} onChangeText={setDetail} maxLength={1000} multiline placeholder="Mô tả thêm (tùy chọn)" placeholderTextColor={colors.textMuted} style={styles.reportInput} />
+      <Text style={styles.counter}>{detail.length}/1000</Text>{error ? <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text> : null}{sent && <Text accessibilityRole="alert" style={{ color: colors.successText }}>Đã tiếp nhận báo cáo. Bạn có thể theo dõi trong Cài đặt.</Text>}
+      <PrimarySheetButton disabled={!reason || busy} label={sent ? "Đóng" : busy ? "Đang gửi..." : "Gửi báo cáo"} onPress={sent ? onClose : () => void submit()} />
     </BottomSheet>
   );
 }
 
 export function SafetySheet({ onClose, visible }: { onClose: () => void; visible: boolean }) {
-  const rows: { icon: IconName; label: string }[] = [
-    { icon: 'shield-checkmark-outline', label: 'Nguyên tắc cộng đồng' },
-    { icon: 'navigate-circle-outline', label: 'Mẹo an toàn khi tham gia hoạt động' },
-    { icon: 'alert-circle-outline', label: 'Cách báo cáo' },
-    { icon: 'chatbubble-ellipses-outline', label: 'Liên hệ hỗ trợ' },
-    { icon: 'call-outline', label: 'Liên hệ khẩn cấp' },
+  const rows: { icon: IconName; label: string; body: string }[] = [
+    { icon: 'shield-checkmark-outline', label: 'Nguyên tắc cộng đồng', body: 'Tôn trọng người đồng hành, đăng thông tin trung thực và không quấy rối. Không chia sẻ dữ liệu riêng của người khác khi chưa được đồng ý.' },
+    { icon: 'navigate-circle-outline', label: 'Gặp gỡ an toàn', body: 'Ưu tiên điểm hẹn công cộng, thống nhất lịch trình trong nhóm và cho người thân biết kế hoạch của bạn.' },
+    { icon: 'flag-outline', label: 'Báo cáo hoạt động', body: 'Mở menu trên thẻ Match, chọn Báo cáo hoạt động, bổ sung lý do và gửi. Theo dõi trạng thái trong Cài đặt → Báo cáo của tôi.' },
+    { icon: 'ban-outline', label: 'Chặn tài khoản', body: 'Mở hồ sơ người dùng hoặc chat riêng rồi chọn Chặn tài khoản này. Bỏ chặn trong Cài đặt → Quyền riêng tư & an toàn.' },
   ];
-  return (
-    <BottomSheet onClose={onClose} visible={visible}>
-      <SheetHeader icon="shield-checkmark" onClose={onClose} title="Trợ giúp & an toàn" />
-      <View style={styles.safetyList}>{rows.map((item) => <SheetMenuRow icon={item.icon} key={item.label} label={item.label} onPress={() => {}} />)}</View>
-    </BottomSheet>
-  );
-}
-
-export function UndoSheet({ onCancel, onConfirm, visible }: { onCancel: () => void; onConfirm: () => void; visible: boolean }) {
-  return (
-    <BottomSheet onClose={onCancel} visible={visible}>
-      <View style={styles.centerSheet}>
-        <View style={styles.undoIcon}><Ionicons color={colors.primary} name="arrow-undo" size={34} /></View>
-        <Text style={styles.confirmTitle}>Quay lại 1 lần</Text>
-        <Text style={styles.confirmText}>Bạn chỉ có thể quay lại 1 hoạt động gần nhất trong mỗi phiên Match.</Text>
-      </View>
-      <PrimarySheetButton label="Quay lại" onPress={onConfirm} />
-      <SecondarySheetButton label="Hủy" onPress={onCancel} />
-    </BottomSheet>
-  );
+  return <BottomSheet onClose={onClose} visible={visible}><SheetHeader icon="shield-checkmark" onClose={onClose} title="Trợ giúp & an toàn" /><ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 18 }}>{rows.map(row => <View key={row.label} style={{ gap: 8 }}><View style={{ flexDirection: 'row', gap: 9, alignItems: 'center' }}><Ionicons name={row.icon} size={21} color={colors.primary} /><Text style={{ color: colors.text, fontWeight: '700' }}>{row.label}</Text></View><Text style={{ color: colors.textSecondary, lineHeight: 21 }}>{row.body}</Text></View>)}</ScrollView></BottomSheet>;
 }
 
 export function NotInterestedSheet({ category, onCancel, onConfirm, visible }: { category: string; onCancel: () => void; onConfirm: () => void; visible: boolean }) {

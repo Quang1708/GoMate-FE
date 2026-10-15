@@ -25,7 +25,17 @@
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
-    ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "GoMate dùng vị trí để tìm hoạt động gần bạn.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      "expo-sharing"
+    ],
+    "scheme": "gomate"
   }
 }

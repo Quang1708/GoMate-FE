@@ -12,7 +12,7 @@ const beRequire = createRequire(resolve(beRoot, 'package.json'));
 const be = path => import(pathToFileURL(resolve(beRoot, path)).href);
 
 // Run the actual FE service code with only React Native's platform/assets replaced.
-function frontend(baseUrl) {
+function frontend(baseUrl, storage = new Map()) {
   const cache = new Map();
   function load(name) {
     if (cache.has(name)) return cache.get(name).exports;
@@ -21,12 +21,13 @@ function frontend(baseUrl) {
     const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
     vm.runInNewContext(code, {
       module, exports: module.exports, require: path => path === 'react-native' ? { Platform: { OS: 'web' } }
-        : path.startsWith('./') ? load(path.slice(2)) : 'test-asset',
-      process: { env: { EXPO_PUBLIC_API_BASE_URL: baseUrl } }, fetch, AbortController, setTimeout, clearTimeout, Date, Error, URLSearchParams,
+        : path === 'expo-constants' ? { default: { expoConfig: null } } : path.startsWith('./') ? load(path.slice(2)) : path.startsWith('../data/') ? load(path) : 'test-asset',
+      localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
+      __DEV__: false, URL, process: { env: { EXPO_PUBLIC_API_BASE_URL: baseUrl } }, fetch, AbortController, setTimeout, clearTimeout, Date, Error, URLSearchParams,
     }, { filename: `${name}.ts` });
     return module.exports;
   }
-  return { api: load('api'), activities: load('activityApi'), draft: load('activityService'), profile: load('profileService'), filters: load('filterService') };
+  return { reload: () => frontend(baseUrl, storage), api: load('api'), activities: load('activityApi'), draft: load('activityService'), profile: load('profileService'), filters: load('filterService') };
 }
 
 test('real FE services against BE: login, creation, requests, decisions, lists, members and expiry', async t => {
@@ -52,15 +53,26 @@ test('real FE services against BE: login, creation, requests, decisions, lists, 
   const baseUrl = `http://127.0.0.1:${server.address().port}/api`;
   const host = frontend(baseUrl), member = frontend(baseUrl), other = frontend(baseUrl);
   for (const [name, user] of [['host', host], ['member', member], ['other', other]]) await user.api.login(`${name}@example.com`, password);
+  const restoredHost = host.reload();
+  assert.equal(restoredHost.api.getSession().accessToken, host.api.getSession().accessToken);
+  assert.equal((await restoredHost.profile.getProfile()).name, 'host');
   const newcomer = frontend(baseUrl);
   await newcomer.api.post('/auth/register', { name: 'New User', email: 'new@example.com', password: '123456' });
   assert.match(verificationCode, /^\d{6}$/);
   const registered = await newcomer.api.verifyEmail('new@example.com', verificationCode);
   assert.equal(newcomer.api.getSession().user.id, registered.user.id);
   assert.equal((await newcomer.profile.getProfile()).profileComplete, false);
-  const profileDraft = { name: 'New User', username: '', bio: 'I like coffee', location: 'TP.HCM', interests: ['Cà phê'], languages: ['English'], gender: 'female', religion: 'undisclosed', alcohol: 'no', birthDate: '' };
+  const profileDraft = { name: 'New User', username: '', bio: 'I like coffee', location: 'TP.HCM', interests: ['Cà phê'], languages: ['English'], gender: 'female', religion: 'undisclosed', alcohol: 'no', birthDate: '2000-01-01' };
   assert.equal((await newcomer.profile.saveProfile(profileDraft)).profileComplete, true);
   assert.throws(() => host.draft.vietnamDate('31/02/2099', '09:00'), /Ngày/);
+  for (const hours of [6,12,24]) {
+    const draft = { date:'05/01/2099', startTime:'09:00', registrationDeadline:'', deadlineHoursBefore:hours };
+    assert.equal(new Date(host.draft.vietnamDate(draft.date,draft.startTime))-new Date(host.draft.draftDeadline(draft)),hours*3600000);
+    const later = {...draft, date:'06/01/2099'};
+    assert.equal(new Date(host.draft.draftDeadline(later))-new Date(host.draft.draftDeadline(draft)),86400000);
+  }
+  assert.throws(()=>host.draft.draftDeadline({deadlineCustom:true,registrationDeadline:''}));
+
   const activity = await host.draft.publishActivityDraft({
     name: 'Integration meetup', description: 'Meet new friends', category: 'Ăn uống', photos: [],
     date: '05/01/2099', endDate: '', startTime: '09:00', endTime: '11:00', registrationDeadline: '04/01/2099 · 18:00',
@@ -71,7 +83,8 @@ test('real FE services against BE: login, creation, requests, decisions, lists, 
     },
   });
   assert.equal(activity.startsAt, '2099-01-05T02:00:00.000Z');
-  assert.equal(activity.financialConfig.treasurerUserId, host.api.getSession().user.id);
+  assert.equal(activity.financialConfig, undefined);
+  assert.equal(activity.estimatedCost, 100000);
   assert.equal(activity.meetingPoint, 'Gate');
   assert.equal((await host.activities.listOwned()).length, 1);
   assert.equal((await host.activities.listJoined()).length, 0);
@@ -106,6 +119,22 @@ test('real FE services against BE: login, creation, requests, decisions, lists, 
   await db.collection('activities').updateOne({ id: activity.id }, { $set: { registrationDeadline: new Date('2000-01-01') } });
   await assert.rejects(member.activities.joinActivity(activity.id), error => error.status === 409);
 
+  // The actual FE adapters drive persisted lifecycle and attendance.
+  const updated = await host.api.api(`/activities/${activity.id}`, { method: 'PATCH', body: JSON.stringify({ title: 'Edited integration meetup', registrationDeadline: null }) });
+  assert.equal(updated.activity.title, 'Edited integration meetup');
+  assert.equal(updated.activity.registrationDeadline, null);
+  const started = await host.activities.transitionActivity(activity.id, 'start');
+  assert.equal(started.status, 'in-progress');
+  await assert.rejects(other.activities.transitionActivity(activity.id, 'complete'), error => error.status === 403);
+  const roster = await host.activities.listAttendance(activity.id);
+  assert.equal(roster.length, 1);
+  await host.activities.markAttendance(activity.id, roster[0].userId, 'present');
+  assert.equal((await host.reload().activities.listAttendance(activity.id))[0].status, 'present');
+  await host.activities.addActivityUpdate(activity.id, 'Arrived at meeting point');
+  assert.equal((await host.activities.listUpdates(activity.id))[0].text, 'Arrived at meeting point');
+  assert.equal((await host.activities.transitionActivity(activity.id, 'complete')).status, 'completed');
+  await assert.rejects(host.activities.markAttendance(activity.id, roster[0].userId, 'absent'), error => error.status === 409);
+
   // A real second page ensures list adapters exhaust the backend pagination contract.
   const first = await activityRepository.get(activity.id);
   await db.collection('activities').insertMany(Array.from({ length: 51 }, (_, index) => ({ ...first, _id: undefined, id: `page-${index}` })));
@@ -119,4 +148,5 @@ test('real FE services against BE: login, creation, requests, decisions, lists, 
   await db.collection('auth_sessions').deleteMany({});
   await assert.rejects(member.activities.listJoined(), error => error.status === 401);
   assert.equal(expired, true); assert.equal(member.api.getSession(), null);
+  assert.equal(member.reload().api.getSession(), null);
 });

@@ -1,4 +1,5 @@
-import { ImageBackground, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,11 +7,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../components/LocalizedText';
 import { GradientButton } from '../components/GradientButton';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { TripPlanView } from '../components/TripPlanView';
+import { ActivityMap } from '../components/ActivityMap';
 import { Activity } from '../data/activities';
 import { colors, layout, radii } from '../theme';
 import { genderOptions, religionOptions } from '../components/ActivityChoices';
 
 export function ActivityDetailScreen({ activity, error, isHost = false, onBack, onPrimary, onViewPeople }: { activity: Activity; error?: string; isHost?: boolean; onBack: () => void; onPrimary: () => void; onViewPeople: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer); }, []);
+  const unavailable = activity.backendStatus === 'completed' || activity.backendStatus === 'in-progress' || Boolean(activity.startsAt && new Date(activity.startsAt).getTime() <= now) || Number(activity.members.split('/')[0]) >= Number(activity.members.split('/')[1]);
+  const blocked = unavailable && !isHost && activity.requestStatus !== 'approved' && activity.requestStatus !== 'pending';
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScreenHeader onBack={onBack} title="Chi tiết hoạt động" />
@@ -23,6 +30,7 @@ export function ActivityDetailScreen({ activity, error, isHost = false, onBack, 
               <Text style={styles.title}>{activity.title}</Text>
             </LinearGradient>
           </ImageBackground>
+          {Boolean(activity.images?.length) && <ScrollView horizontal contentContainerStyle={{ gap: 10, paddingVertical: 12 }}>{activity.images!.map((source, index) => <Image key={index} source={source} style={{ width: 160, height: 120, borderRadius: 14 }} />)}</ScrollView>}
 
           <View style={styles.infoGrid}>
             <Info icon="calendar-outline" label="Thời gian" value={activity.time} />
@@ -31,6 +39,7 @@ export function ActivityDetailScreen({ activity, error, isHost = false, onBack, 
             <Info icon="wallet-outline" label="Chi phí dự kiến" value={activity.estimatedCost} />
           </View>
 
+          {activity.coordinates && <ActivityMap point={activity.coordinates} />}
           <Pressable onPress={onViewPeople} style={styles.hostCard}>
             <View style={styles.hostAvatar}><Text style={styles.hostInitial}>{activity.host.charAt(0)}</Text></View>
             <View style={styles.hostCopy}>
@@ -53,10 +62,8 @@ export function ActivityDetailScreen({ activity, error, isHost = false, onBack, 
           <Section title="Yêu cầu">
             {activity.requirements.map((item) => <Bullet key={item} text={item} />)}
           </Section>
-          <Section title="Kế hoạch dự kiến">
-            {activity.plan.map((item) => <Bullet key={item} text={item} timeline />)}
-          </Section>
-          <GradientButton label={activity.requestStatus === 'pending' ? 'Hủy yêu cầu tham gia' : activity.requestStatus === 'approved' ? 'Mở nhóm hoạt động' : isHost ? 'Quản lý hoạt động' : 'Gửi yêu cầu tham gia'} onPress={onPrimary} style={styles.cta} trailing={<Ionicons color={colors.white} name={isHost ? 'settings-outline' : 'heart'} size={19} />} />
+          <Section title="Kế hoạch dự kiến"><TripPlanView activityId={activity.id} itinerary={activity.itinerary} plan={activity.plan} planLink={activity.planLink} planFile={activity.planFile} /></Section>
+          <GradientButton disabled={blocked} label={blocked ? 'Hoạt động không còn nhận thành viên' : activity.requestStatus === 'pending' ? 'Hủy yêu cầu tham gia' : activity.requestStatus === 'approved' ? 'Mở nhóm hoạt động' : isHost ? 'Quản lý hoạt động' : 'Gửi yêu cầu tham gia'} onPress={onPrimary} style={styles.cta} trailing={<Ionicons color={colors.white} name={isHost ? 'settings-outline' : 'heart'} size={19} />} />
         </View>
       </ScrollView>
     </SafeAreaView>

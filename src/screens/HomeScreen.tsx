@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { HomeHeader, HomeEmptyState, NextActivityCard, ActivityScheduleItem } from '../components/home/HomeComponents';
 import { Text } from '../components/LocalizedText';
 import { RemoteState } from '../components/RemoteState';
@@ -8,10 +8,12 @@ import { listJoined, listOwned, toActivity } from '../services/activityApi';
 import { useRemote } from '../services/useRemote';
 import { colors, layout } from '../theme';
 type HomeScreenProps = {
-  onMatchPress: () => void; onMyActivitiesPress: () => void; onNotificationsPress: () => void;
+  onMatchPress: () => void; onMyActivitiesPress: () => void; onNotificationsPress: () => void; onProfilePress: () => void;
   onPendingPress: () => void; onOpenActivity: (activity: Activity) => void; onOpenGroup: (activity: Activity) => void;
 };
-export function HomeScreen({ onMatchPress, onMyActivitiesPress, onNotificationsPress, onPendingPress, onOpenActivity, onOpenGroup }: HomeScreenProps) {
+export function HomeScreen({ onMatchPress, onMyActivitiesPress, onNotificationsPress, onProfilePress, onPendingPress, onOpenActivity, onOpenGroup }: HomeScreenProps) {
+  const { width } = useWindowDimensions();
+  const wide = width >= 768;
   const loader = useCallback(async () => {
     const [joined, owned] = await Promise.all([listJoined(), listOwned()]);
     return [...joined, ...owned].filter(row => row.status !== 'completed' && (!row.endsAt || new Date(row.endsAt).getTime() > Date.now()))
@@ -21,12 +23,12 @@ export function HomeScreen({ onMatchPress, onMyActivitiesPress, onNotificationsP
   const next = remote.data[0];
   return <ScrollView contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={remote.loading} onRefresh={remote.reload} />}>
     <View style={styles.page}>
-      <HomeHeader activityCount={remote.data.length} onCalendarPress={onMyActivitiesPress} onNotificationsPress={onNotificationsPress} />
+      <HomeHeader activityCount={remote.data.length} onCalendarPress={onMyActivitiesPress} onNotificationsPress={onNotificationsPress} onProfilePress={onProfilePress} />
       <RemoteState {...remote} onRetry={remote.reload} />
       {!remote.loading && !remote.error && (next ? <NextActivityCard activity={next} onGroup={() => onOpenGroup(next)} onPlan={() => onOpenActivity(next)} /> : <HomeEmptyState onMatch={onMatchPress} />)}
       <Pressable onPress={onPendingPress} style={styles.sectionHeading}><Text style={styles.switchLink}>Yêu cầu đang chờ duyệt →</Text></Pressable>
       <Pressable onPress={onMyActivitiesPress} style={styles.sectionHeading}><Text style={styles.sectionTitle}>Hoạt động của tôi →</Text></Pressable>
-      {!remote.loading && !remote.error && remote.data.slice(1).map(item => <ActivityScheduleItem key={item.id} activity={item} onPress={() => onOpenGroup(item)} status={item.requestStatus === 'approved' ? 'Đã tham gia' : 'Bạn tổ chức'} />)}
+      <View style={{ flexDirection: wide ? 'row' : 'column', flexWrap: 'wrap', gap: 12 }}>{!remote.loading && !remote.error && remote.data.slice(1).map(item => <View key={item.id} style={{ width: wide ? '48%' : '100%' }}><ActivityScheduleItem key={item.id} activity={item} onPress={() => onOpenGroup(item)} status={item.requestStatus === 'approved' ? 'Đã tham gia' : 'Bạn tổ chức'} /></View>)}</View>
     </View>
   </ScrollView>;
 }

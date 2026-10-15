@@ -1,20 +1,28 @@
 import { ComponentProps, useState } from 'react';
-import { GestureResponderEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LocationField } from '../components/LocationField';
+import type { Coordinates } from '../services/locationService';
 import { Text } from '../components/LocalizedText';
 import { AdvancedPreferences, emptyPreferences, ParticipantPreferences } from '../components/ActivityChoices';
-import { DateField, dateToIso, TimeField } from '../components/DateTimeField';
-import { FormField } from '../components/FormField';
-import { activityCategories, activityLocations, provinces } from '../data/activityOptions';
+import { DateRangeField, dateToIso, TimeField } from '../components/DateTimeField';
+import { SelectionField } from '../components/SelectionField';
+import { ActivityLocationFields } from '../components/ActivityLocationFields';
+import { activityCategories } from '../data/activityOptions';
 import { colors, control, layout, radii } from '../theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 export type ActivityFilters = {
+  organizerType: 'all' | 'personal' | 'business';
+  sort: 'recommended' | 'nearest' | 'soonest';
+  radiusEnabled: boolean;
+  coordinates?: Coordinates | null;
   province: string;
   district: string;
+  ward?: string;
   distance: number;
   categories: string[];
   availableDays: string[];
@@ -31,23 +39,16 @@ export type ActivityFilters = {
 };
 
 export const defaultActivityFilters: ActivityFilters = {
+  organizerType: 'all', sort: 'recommended', radiusEnabled: false, coordinates: null,
   province: 'Tất cả', district: 'Tất cả', distance: 10, categories: [],
   availableDays: [], timePeriods: [], minBudget: 0, maxBudget: 2000000, minimumCapacity: 0,
   maximumCapacity: 0, dateFrom: '', dateTo: '', fromTime: '', toTime: '', preferences: emptyPreferences,
 };
 
-type FilterScreenProps = { initialFilters?: ActivityFilters; onApply: (filters: ActivityFilters) => void; onClose: () => void };
-const distances = [1, 5, 10, 20, 50];
+type FilterScreenProps = { saving?: boolean; saveError?: string; initialFilters?: ActivityFilters; onApply: (filters: ActivityFilters) => void; onClose: () => void };
 const budgets = [0, 100000, 300000, 500000, 1000000, 2000000];
-const capacities = [0, 2, 4, 6, 8, 10, 12];
 const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const periods = ['Sáng', 'Chiều', 'Tối'];
-
-const categoryIcons: Record<string, IconName> = {
-  'Ăn uống': 'restaurant', 'Thể thao': 'barbell', 'Du lịch': 'airplane', 'Giải trí': 'film',
-  'Học tập': 'school', Gaming: 'game-controller', 'Âm nhạc': 'musical-notes', 'Nghệ thuật': 'color-palette',
-  'Thiên nhiên': 'leaf', 'Tình nguyện': 'heart', 'Công nghệ': 'hardware-chip', Networking: 'people',
-};
 
 function moneyLabel(value: number) {
   if (value === 0) return '0đ';
@@ -57,7 +58,7 @@ function moneyLabel(value: number) {
 
 export function FilterScreen(props: FilterScreenProps) { return <FilterSheet {...props} />; }
 
-export function FilterSheet({ initialFilters = defaultActivityFilters, onApply, onClose }: FilterScreenProps) {
+export function FilterSheet({ saving = false, saveError, initialFilters = defaultActivityFilters, onApply, onClose }: FilterScreenProps) {
   const [filters, setFilters] = useState<ActivityFilters>(initialFilters);
   const [error, setError] = useState('');
   const apply = () => {
@@ -66,67 +67,61 @@ export function FilterSheet({ initialFilters = defaultActivityFilters, onApply, 
     if ((filters.fromTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(filters.fromTime)) || (filters.toTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(filters.toTime))) { setError('Giờ cần theo định dạng HH:mm.'); return; }
     if (filters.maximumCapacity && filters.minimumCapacity > filters.maximumCapacity) { setError('Số lượng tối thiểu không được lớn hơn tối đa.'); return; }
     if ([filters.minimumCapacity, filters.maximumCapacity].some(value => value !== 0 && (!Number.isInteger(value) || value < 2 || value > 1000))) { setError('Số lượng thành viên cần từ 2 đến 1000.'); return; }
+    if ((filters.radiusEnabled || filters.sort === 'nearest') && !filters.coordinates) { setError('Chọn vị trí hoặc bật GPS để lọc theo bán kính.'); return; }
     onApply(filters);
   };
-  const districts = filters.province === 'Tất cả' ? [] : activityLocations[filters.province] ?? [];
   const toggleList = (key: 'categories' | 'availableDays' | 'timePeriods', value: string) => setFilters((current) => ({ ...current, [key]: current[key].includes(value) ? current[key].filter((item) => item !== value) : [...current[key], value] }));
 
   return <SafeAreaView style={styles.safeArea}>
-    <View style={styles.sheetHandle} /><View style={styles.header}><Pressable accessibilityLabel="Đóng bộ lọc" onPress={onClose} style={styles.headerButton}><Ionicons color={colors.text} name="close" size={26} /></Pressable><View style={styles.headerCopy}><Text style={styles.headerTitle}>Bộ lọc nâng cao</Text><Text style={styles.headerSubtitle}>Tìm hoạt động phù hợp nhất với bạn</Text></View><Pressable onPress={() => setFilters(defaultActivityFilters)} style={styles.resetButton}><Text style={styles.resetText}>Đặt lại</Text></Pressable></View>
+    <View style={styles.sheetHandle} /><View style={styles.header}><Pressable accessibilityLabel="Đóng bộ lọc" onPress={onClose} style={styles.headerButton}><Ionicons color={colors.text} name="close" size={26} /></Pressable><View style={styles.headerCopy}><Text style={styles.headerTitle}>Bộ lọc hoạt động</Text><Text style={styles.headerSubtitle}>Tìm hoạt động phù hợp nhất với bạn</Text></View><Pressable onPress={() => setFilters(defaultActivityFilters)} style={styles.resetButton}><Text style={styles.resetText}>Đặt lại</Text></Pressable></View>
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}><View style={styles.page}>
-      <FilterSection icon="location-outline" subtitle="Chọn đến cấp quận/huyện" title="Khu vực">
-        <ChipGroup options={['Tất cả', ...provinces]} selected={[filters.province]} onPress={(province) => setFilters((current) => ({ ...current, province, district: 'Tất cả' }))} />
-        {filters.province !== 'Tất cả' && <><Text style={styles.innerLabel}>Quận / huyện</Text><ChipGroup options={['Tất cả', ...districts]} selected={[filters.district]} onPress={(district) => setFilters((current) => ({ ...current, district }))} /></>}
-        <SliderHeader label="Bán kính tìm kiếm" value={`Trong ${filters.distance} km`} /><DiscreteSlider labels={distances.map((value) => `${value} km`)} onChange={(distance) => setFilters((current) => ({ ...current, distance }))} value={filters.distance} values={distances} />
+      <FilterSection icon="business-outline" subtitle="Chọn nguồn tổ chức hoạt động" title="Loại hoạt động">
+        <ChipGroup options={['Tất cả', 'Cá nhân', 'Doanh nghiệp']} selected={[{ all: 'Tất cả', personal: 'Cá nhân', business: 'Doanh nghiệp' }[filters.organizerType]]} onPress={label => setFilters(current => ({ ...current, organizerType: label === 'Cá nhân' ? 'personal' : label === 'Doanh nghiệp' ? 'business' : 'all' }))} />
+        <Text style={styles.innerLabel}>Sắp xếp gợi ý</Text><ChipGroup options={['Dành cho bạn', 'Gần nhất', 'Sắp diễn ra']} selected={[{ recommended: 'Dành cho bạn', nearest: 'Gần nhất', soonest: 'Sắp diễn ra' }[filters.sort]]} onPress={label => setFilters(current => ({ ...current, sort: label === 'Gần nhất' ? 'nearest' : label === 'Sắp diễn ra' ? 'soonest' : 'recommended' }))} />
+        <Text style={styles.allHint}>Bộ lọc được lưu cho tài khoản của bạn khi áp dụng.</Text>
+      </FilterSection>
+      <FilterSection icon="location-outline" subtitle="Chọn khu vực hoặc tìm quanh một vị trí" title="Khu vực">
+        <ActivityLocationFields filter province={filters.province} district={filters.district} ward={filters.ward} onChange={patch => setFilters(current => ({ ...current, ...patch }))} />
+        <View style={{ gap: 12, marginTop: 16 }}><LocationField value={filters.coordinates} onChange={coordinates => setFilters(current => ({ ...current, coordinates, radiusEnabled: coordinates ? current.radiusEnabled : false }))} radiusKm={filters.radiusEnabled ? filters.distance : undefined} />
+        <View style={styles.sliderHeader}><Text style={styles.sliderLabel}>Chỉ tìm trong bán kính</Text><Switch accessibilityLabel="Lọc theo bán kính" value={filters.radiusEnabled} onValueChange={radiusEnabled => setFilters(current => ({ ...current, radiusEnabled }))} /></View></View>
+        {filters.radiusEnabled && !filters.coordinates && <Text style={styles.allHint}>Bán kính đã được lưu. Chọn vị trí cho phiên này để tiếp tục.</Text>}
+        <SelectionField label="Bán kính tìm kiếm" options={[1, 5, 10, 20, 50, 100, 200].map(value => ({ value: String(value), label: `${value} km` }))} selected={[String(filters.distance)]} onChange={values => setFilters(current => ({ ...current, distance: Number(values[0] || 10) }))} />
       </FilterSection>
 
       <FilterSection icon="grid-outline" subtitle="Có thể chọn nhiều danh mục" title="Danh mục">
-        <View style={styles.categoryGrid}>{activityCategories.map((category) => { const selected = filters.categories.includes(category); return <Pressable key={category} onPress={() => toggleList('categories', category)} style={[styles.categoryCard, selected && styles.categoryCardActive]}><Ionicons color={selected ? colors.primary : colors.textSecondary} name={categoryIcons[category] ?? 'ellipse'} size={22} /><Text style={[styles.categoryText, selected && styles.categoryTextActive]}>{category}</Text></Pressable>; })}</View>
-        {filters.categories.length === 0 && <Text style={styles.allHint}>Đang hiển thị tất cả danh mục</Text>}
+        <SelectionField label="Danh mục hoạt động" options={[...activityCategories, 'Khác'].map(label => ({ value: label, label }))} selected={filters.categories} onChange={categories => setFilters(current => ({ ...current, categories }))} multiple searchable emptyLabel="Tất cả danh mục" />
       </FilterSection>
 
       <FilterSection icon="calendar-outline" subtitle="Để trống nếu thời gian linh hoạt" title="Thời gian phù hợp">
         <Text style={styles.innerLabel}>Ngày trong tuần</Text><ChipGroup compact options={days} selected={filters.availableDays} onPress={(day) => toggleList('availableDays', day)} />
         <Text style={styles.innerLabel}>Buổi trong ngày</Text><ChipGroup options={periods} selected={filters.timePeriods} onPress={(period) => toggleList('timePeriods', period)} />
         <View style={{ gap: 12, marginTop: 16 }}>
-          <DateField label="Từ ngày cụ thể" value={filters.dateFrom} onChange={dateFrom => setFilters(current => ({ ...current, dateFrom, dateTo: current.dateTo || dateFrom }))} />
-          <DateField label="Đến ngày cụ thể" value={filters.dateTo} onChange={dateTo => setFilters(current => ({ ...current, dateTo }))} />
+          <DateRangeField label="Khoảng ngày hoạt động" start={filters.dateFrom} end={filters.dateTo} onChange={(dateFrom, dateTo) => setFilters(current => ({ ...current, dateFrom, dateTo }))} allowPast />
+          {Boolean(filters.dateFrom) && <Pressable accessibilityRole="button" onPress={() => setFilters(current => ({ ...current, dateFrom: '', dateTo: '' }))}><Text style={styles.resetText}>Xóa khoảng ngày</Text></Pressable>}
           <TimeField label="Giờ bắt đầu từ" value={filters.fromTime} onChange={fromTime => setFilters(current => ({ ...current, fromTime }))} />
           <TimeField label="Giờ bắt đầu đến" value={filters.toTime} onChange={toTime => setFilters(current => ({ ...current, toTime }))} />
         </View>
       </FilterSection>
 
       <FilterSection icon="wallet-outline" subtitle="Chi phí dự kiến cho mỗi người" title="Khoảng chi phí">
-        <SliderHeader label="Từ" value={moneyLabel(filters.minBudget)} /><DiscreteSlider labels={budgets.map(moneyLabel)} onChange={(minBudget) => setFilters((current) => ({ ...current, minBudget, maxBudget: Math.max(current.maxBudget, minBudget) }))} value={filters.minBudget} values={budgets} />
-        <SliderHeader label="Đến" value={filters.maxBudget === 2000000 ? '2 triệu+' : moneyLabel(filters.maxBudget)} /><DiscreteSlider labels={budgets.map(moneyLabel)} onChange={(maxBudget) => setFilters((current) => ({ ...current, maxBudget, minBudget: Math.min(current.minBudget, maxBudget) }))} value={filters.maxBudget} values={budgets} />
+        <SelectionField label="Chi phí từ" options={budgets.map(value => ({ value: String(value), label: moneyLabel(value) }))} selected={[String(filters.minBudget)]} onChange={values => setFilters(current => ({ ...current, minBudget: Number(values[0] || 0), maxBudget: Math.max(current.maxBudget, Number(values[0] || 0)) }))} />
+        <SelectionField label="Chi phí đến" options={budgets.map(value => ({ value: String(value), label: value === 2000000 ? 'Không giới hạn' : moneyLabel(value) }))} selected={[String(filters.maxBudget)]} onChange={values => setFilters(current => ({ ...current, maxBudget: Number(values[0] || 0), minBudget: Math.min(current.minBudget, Number(values[0] || 0)) }))} />
       </FilterSection>
 
       <FilterSection icon="people-outline" subtitle="Lọc theo sức chứa của nhóm" title="Số lượng thành viên">
-        <SliderHeader label="Số thành viên tối thiểu của nhóm" value={filters.minimumCapacity ? `Ít nhất ${filters.minimumCapacity} người` : 'Bất kỳ'} /><DiscreteSlider labels={capacities.map((value) => value ? String(value) : 'Bất kỳ')} onChange={(minimumCapacity) => setFilters((current) => ({ ...current, minimumCapacity }))} value={filters.minimumCapacity} values={capacities} />
-        <FormField label="Sức chứa tối đa (để trống nếu bất kỳ)" keyboardType="number-pad" value={filters.maximumCapacity ? String(filters.maximumCapacity) : ''} onChangeText={value => setFilters(current => ({ ...current, maximumCapacity: Number(value.replace(/\D/g, '')) }))} placeholder="Ví dụ: 10" />
+        <SelectionField label="Nhóm có tối thiểu" options={[{ value: '0', label: 'Bất kỳ' }, ...Array.from({ length: 999 }, (_, index) => ({ value: String(index + 2), label: `${index + 2} người` }))]} selected={[String(filters.minimumCapacity)]} onChange={values => setFilters(current => ({ ...current, minimumCapacity: Number(values[0] || 0) }))} />
+        <SelectionField label="Nhóm có tối đa" options={[{ value: '0', label: 'Bất kỳ' }, ...Array.from({ length: 999 }, (_, index) => ({ value: String(index + 2), label: `${index + 2} người` }))]} selected={[String(filters.maximumCapacity)]} onChange={values => setFilters(current => ({ ...current, maximumCapacity: Number(values[0] || 0) }))} />
       </FilterSection>
       <AdvancedPreferences filter value={filters.preferences} onChange={preferences => setFilters(current => ({ ...current, preferences }))} />
+      {saveError ? <Text style={{ color: colors.danger }}>{saveError}</Text> : null}
       {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
     </View></ScrollView>
-    <View style={styles.footer}><Pressable onPress={apply} style={({ pressed }) => [styles.applyButton, pressed && styles.pressed]}><Ionicons color={colors.white} name="options" size={19} /><Text style={styles.applyText}>Áp dụng bộ lọc</Text></Pressable></View>
+    <View style={styles.footer}><Pressable disabled={saving} onPress={apply} style={({ pressed }) => [styles.applyButton, pressed && styles.pressed]}><Ionicons color={colors.white} name="options" size={19} /><Text style={styles.applyText}>{saving ? 'Đang lưu...' : 'Áp dụng bộ lọc'}</Text></Pressable></View>
   </SafeAreaView>;
 }
 
 function FilterSection({ children, icon, subtitle, title }: { children: React.ReactNode; icon: IconName; subtitle: string; title: string }) { return <View style={styles.section}><View style={styles.sectionHeader}><View style={styles.sectionIcon}><Ionicons color={colors.primary} name={icon} size={20} /></View><View><Text style={styles.sectionTitle}>{title}</Text><Text style={styles.sectionSubtitle}>{subtitle}</Text></View></View><View style={styles.sectionBody}>{children}</View></View>; }
-function SliderHeader({ label, value }: { label: string; value: string }) { return <View style={styles.sliderHeader}><Text style={styles.sliderLabel}>{label}</Text><Text style={styles.sliderValue}>{value}</Text></View>; }
 function ChipGroup({ compact = false, onPress, options, selected }: { compact?: boolean; onPress: (value: string) => void; options: string[]; selected: string[] }) { return <View style={styles.chipRow}>{options.map((option) => { const active = selected.includes(option); return <Pressable key={option} onPress={() => onPress(option)} style={[styles.chip, compact && styles.compactChip, active && styles.activeChip]}><Text style={[styles.chipText, active && styles.activeChipText]}>{option}</Text></Pressable>; })}</View>; }
-
-function DiscreteSlider({ labels, onChange, value, values }: { labels: string[]; onChange: (value: number) => void; value: number; values: number[] }) {
-  const [width, setWidth] = useState(0);
-  const index = Math.max(0, values.indexOf(value));
-  const update = (event: GestureResponderEvent) => {
-    if (!width) return;
-    const nextIndex = Math.max(0, Math.min(values.length - 1, Math.round((event.nativeEvent.locationX / width) * (values.length - 1))));
-    onChange(values[nextIndex]);
-  };
-  const percent = values.length > 1 ? (index / (values.length - 1)) * 100 : 0;
-  return <View style={styles.slider}><View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} onMoveShouldSetResponder={() => true} onResponderGrant={update} onResponderMove={update} onStartShouldSetResponder={() => true} style={styles.sliderTouch}><View style={styles.sliderTrack}><View style={[styles.sliderFill, { width: `${percent}%` }]} /><View style={[styles.sliderThumb, { left: `${percent}%` }]} /></View></View><View style={styles.sliderLabels}>{labels.map((label, itemIndex) => <Text key={`${label}-${itemIndex}`} numberOfLines={1} style={[styles.sliderTick, itemIndex === index && styles.sliderTickActive]}>{label}</Text>)}</View></View>;
-}
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 }, sheetHandle: { alignSelf: 'center', backgroundColor: colors.border, borderRadius: 2, height: 4, marginTop: 4, width: 42 }, header: { alignItems: 'center', flexDirection: 'row', minHeight: 64, paddingHorizontal: 12 }, headerButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 }, headerCopy: { flex: 1, marginLeft: 4 }, headerTitle: { color: colors.text, fontSize: 17, fontWeight: '800' }, headerSubtitle: { color: colors.textMuted, fontSize: 10.5, marginTop: 2 }, resetButton: { alignItems: 'flex-end', justifyContent: 'center', minWidth: 58 }, resetText: { color: colors.primary, fontSize: 12.5, fontWeight: '700' }, scrollContent: { paddingBottom: 22 }, page: { alignSelf: 'center', gap: 12, maxWidth: layout.maxWidth, paddingHorizontal: 15, width: '100%' },

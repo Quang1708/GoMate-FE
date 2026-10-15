@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const colors = {
   primary: '#6C5CE7',
   primaryLight: '#8B7CF6',
@@ -93,7 +95,7 @@ export const shadows = {
 
 export const layout = {
   pagePadding: 16,
-  maxWidth: 540,
+  maxWidth: Platform.OS === 'web' ? 1040 : 540,
   radius: radii.largeCard,
 };
 

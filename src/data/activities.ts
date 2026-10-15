@@ -1,6 +1,9 @@
 import { ImageSourcePropType } from 'react-native';
 
 export type Activity = {
+  version?: number; reservedSeats?: number; costNote?: string; itinerary?: import('../services/planService').ItineraryStep[]; planLink?: string; planFile?: import('../services/planService').PlanFile | null;
+  organizerType?: 'personal' | 'business';
+  coordinates?: import('../services/locationService').Coordinates | null;
   id: string;
   hostId?: string;
   minParticipants?: number;
@@ -26,6 +29,7 @@ export type Activity = {
   hostCompletedActivities: number;
   status?: 'pending' | 'confirmed' | 'in-progress' | 'completed';
   image: ImageSourcePropType;
+  images?: ImageSourcePropType[];
 };
 
 export const activities: Activity[] = [

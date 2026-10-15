@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,10 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLogo } from '../components/BrandLogo';
 import { FormField } from '../components/FormField';
 import { Text } from '../components/LocalizedText';
+import { useWebNavigation } from '../services/webNavigation';
 import { login, post } from '../services/api';
-import { colors, control, layout, typography } from '../theme';
+import { colors, control, typography } from '../theme';
 
 type AuthStage = 'welcome' | 'login' | 'signup' | 'forgot' | 'reset' | 'success';
+
+const encodeAuth = (stage: AuthStage) => `/auth/${stage}`;
+const decodeAuth = (path: string): AuthStage => { const stage = path.split('/')[2]; return ['welcome', 'login', 'signup', 'forgot', 'reset', 'success'].includes(stage) ? stage as AuthStage : 'welcome'; };
 
 type AuthScreenProps = {
   onLogin: () => void;
@@ -17,9 +22,10 @@ type AuthScreenProps = {
 };
 
 export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
-  const [stage, setStage] = useState<AuthStage>('welcome');
+  const [stage, setStage] = useWebNavigation<AuthStage>('welcome', encodeAuth, decodeAuth, 'guest');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmailValue] = useState(() => { try { return sessionStorage.getItem('gomate.authEmail') || ''; } catch { return ''; } });
+  const setEmail = (value: string) => { setEmailValue(value); try { sessionStorage.setItem('gomate.authEmail', value); } catch { /* Optional draft. */ } };
   const [loginPassword, setLoginPassword] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -28,6 +34,12 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
   const [error, setError] = useState('');
+  const [resendSeconds, setResendSeconds] = useState(0);
+  useEffect(() => {
+    if (!resendSeconds) return;
+    const timer = setTimeout(() => setResendSeconds(seconds => Math.max(0, seconds - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendSeconds]);
   const [resetCode, setResetCode] = useState('');
   const run = async (action: () => Promise<void>) => {
     if (submitting.current) return;
@@ -51,7 +63,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
           </View>
           <View style={styles.welcomeActions}>{error ? <Text style={{ color: colors.match }}>{error}</Text> : null}
             <MethodButton icon="mail-outline" label="Continue with email" onPress={() => setStage('signup')} primary />
-            <MethodButton icon="logo-google" label="Continue with Google" onPress={unavailable} />
+            <GoogleLoginButton onLogin={onLogin} />
             <MethodButton icon="logo-apple" label="Continue with Apple" onPress={unavailable} />
             <InlinePrompt action="Log in" label="Already have an account?" onPress={() => setStage('login')} />
           </View>
@@ -96,10 +108,10 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
                   <FormField label="Password" onChangeText={setLoginPassword} secureTextEntry value={loginPassword} />
                 </View>
                 <Pressable onPress={() => setStage('forgot')} style={styles.forgotLink}><Text style={styles.linkText}>Forgot password?</Text></Pressable>
-                <PrimaryButton label={busy ? "Đang đăng nhập..." : "Log in"} onPress={handleLogin} />
+                <PrimaryButton disabled={busy} label={busy ? "Đang đăng nhập..." : "Log in"} onPress={handleLogin} />
                 <Text style={styles.orText}>or</Text>
                 <View style={styles.socialButtons}>
-                  <MethodButton icon="logo-google" label="Continue with Google" onPress={unavailable} />
+                  <GoogleLoginButton onLogin={onLogin} />
                   <MethodButton icon="logo-apple" label="Continue with Apple" onPress={unavailable} />
                 </View>
               </View>
@@ -120,16 +132,16 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
                 <View style={styles.checkbox}><Ionicons color={colors.white} name="checkmark" size={14} /></View>
                 <Text style={styles.consentText}>I agree to the Terms of Service and Privacy Policy.</Text>
               </Pressable>
-              <PrimaryButton label={busy ? "Đang tạo tài khoản..." : "Create account"} onPress={handleRegister} />
+              <PrimaryButton disabled={busy} label={busy ? "Đang tạo tài khoản..." : "Create account"} onPress={handleRegister} />
               <View style={styles.signupPrompt}><InlinePrompt action="Log in" label="Already have an account?" onPress={() => setStage('login')} /></View>
             </View>
           )}
 
           {stage === 'forgot' && (
             <View style={styles.formPage}>
-              <AuthHeading subtitle="Enter the email linked to your account and we will send you a reset link." title="Forgot password?" />
+              <AuthHeading subtitle="Nhập email tài khoản để nhận mã OTP gồm 6 chữ số." title="Forgot password?" />
               <View style={styles.forgotField}><FormField keyboardType="email-address" label="Email" onChangeText={setEmail} value={email} /></View>
-              <PrimaryButton label="Send reset link" onPress={() => void run(async () => { await post('/auth/forgot-password', { email: email.trim() }); setStage('reset'); })} />
+              <PrimaryButton disabled={busy} label={busy ? 'Đang gửi...' : 'Gửi mã OTP'} onPress={() => void run(async () => { await post('/auth/forgot-password', { email: email.trim() }); setResetCode(''); setResendSeconds(60); setStage('reset'); })} />
               <Pressable onPress={() => setStage('login')} style={styles.backToLogin}><Text style={styles.mutedAction}>Back to log in</Text></Pressable>
             </View>
           )}
@@ -137,9 +149,9 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
           {stage === 'reset' && (
             <View style={styles.screenPage}>
               <View>
-                <AuthHeading subtitle="Your new password must be different from previous ones." title="Create new password" />
+                <AuthHeading subtitle="Nhập mã OTP đã gửi đến email và mật khẩu mới từ 6 ký tự." title="Create new password" />
                 <View style={styles.fields}>
-                  <FormField label="Mã xác nhận 6 số" keyboardType="number-pad" value={resetCode} onChangeText={setResetCode} />
+                  <FormField label="Mã xác nhận 6 số" keyboardType="number-pad" value={resetCode} onChangeText={value => setResetCode(value.replace(/\D/g, '').slice(0, 6))} />
                   <FormField label="New password" onChangeText={setNewPassword} secureTextEntry value={newPassword} />
                   <FormField label="Confirm password" onChangeText={setConfirmPassword} secureTextEntry value={confirmPassword} />
                 </View>
@@ -149,7 +161,8 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
 
                 </View>
               </View>
-              <PrimaryButton label="Reset password" onPress={() => void run(async () => { if (newPassword !== confirmPassword) throw new Error('Mật khẩu xác nhận không khớp'); await post('/auth/reset-password', { email: email.trim(), code: resetCode, newPassword }); setStage('success'); })} />
+              <Pressable disabled={busy || resendSeconds > 0} onPress={() => void run(async () => { await post('/auth/forgot-password', { email: email.trim() }); setResendSeconds(60); setError('Đã yêu cầu gửi lại mã OTP. Kiểm tra hộp thư của bạn.'); })}><Text style={styles.linkText}>{resendSeconds ? `Gửi lại mã sau ${resendSeconds}s` : 'Gửi lại mã OTP'}</Text></Pressable>
+              <PrimaryButton disabled={busy} label={busy ? 'Đang xử lý...' : 'Reset password'} onPress={() => void run(async () => { if (!/^\d{6}$/.test(resetCode)) throw new Error('Nhập mã OTP gồm 6 chữ số'); if (newPassword.length < 6 || newPassword.length > 128) throw new Error('Mật khẩu cần từ 6 đến 128 ký tự'); if (newPassword !== confirmPassword) throw new Error('Mật khẩu xác nhận không khớp'); await post('/auth/reset-password', { email: email.trim(), code: resetCode, newPassword }); setNewPassword(''); setConfirmPassword(''); setResetCode(''); setLoginPassword(''); setStage('success'); })} />
             </View>
           )}
         </ScrollView>
@@ -169,8 +182,8 @@ function AuthHeading({ title, subtitle }: { title: string; subtitle: string }) {
   return <View><Text style={styles.formTitle}>{title}</Text><Text style={styles.formSubtitle}>{subtitle}</Text></View>;
 }
 
-function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><Text style={styles.primaryButtonLabel}>{label}</Text></Pressable>;
+function PrimaryButton({ label, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
+  return <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.primaryButton, disabled && { opacity: 0.5 }, pressed && styles.pressed]}><Text style={styles.primaryButtonLabel}>{label}</Text></Pressable>;
 }
 
 function InlinePrompt({ action, label, onPress }: { action: string; label: string; onPress: () => void }) {
@@ -191,17 +204,17 @@ function Requirement({ label, valid = false }: { label: string; valid?: boolean 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   flex: { flex: 1 },
-  welcomePage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: layout.maxWidth, paddingBottom: 20, paddingHorizontal: 32, paddingTop: 82, width: '100%' },
+  welcomePage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: 540, paddingBottom: 20, paddingHorizontal: 32, paddingTop: 82, width: '100%' },
   welcomeBrand: { alignItems: 'center' },
   welcomeTitle: { color: colors.text, marginTop: 16, ...typography.display },
   welcomeSubtitle: { color: colors.textSecondary, marginTop: 12, maxWidth: 310, textAlign: 'center', ...typography.bodyLarge },
   welcomeActions: { gap: 12 },
   legal: { color: colors.textMuted, fontSize: 12, lineHeight: 16, paddingHorizontal: 10, textAlign: 'center' },
-  header: { alignItems: 'center', alignSelf: 'center', flexDirection: 'row', height: 56, justifyContent: 'space-between', maxWidth: layout.maxWidth, paddingHorizontal: 12, width: '100%' },
+  header: { alignItems: 'center', alignSelf: 'center', flexDirection: 'row', height: 56, justifyContent: 'space-between', maxWidth: 540, paddingHorizontal: 12, width: '100%' },
   headerButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
   scrollContent: { flexGrow: 1 },
-  screenPage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: layout.maxWidth, minHeight: 570, paddingBottom: 26, paddingHorizontal: 20, paddingTop: 25, width: '100%' },
-  formPage: { alignSelf: 'center', maxWidth: layout.maxWidth, paddingBottom: 28, paddingHorizontal: 20, paddingTop: 25, width: '100%' },
+  screenPage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: 540, minHeight: 570, paddingBottom: 26, paddingHorizontal: 20, paddingTop: 25, width: '100%' },
+  formPage: { alignSelf: 'center', maxWidth: 540, paddingBottom: 28, paddingHorizontal: 20, paddingTop: 25, width: '100%' },
   formTitle: { color: colors.text, ...typography.title },
   formSubtitle: { color: colors.textSecondary, marginTop: 4, maxWidth: 390, ...typography.body },
   fields: { gap: 14, marginTop: 28 },
@@ -227,7 +240,7 @@ const styles = StyleSheet.create({
   requirements: { gap: 5, marginTop: 14 },
   requirementRow: { alignItems: 'center', flexDirection: 'row', gap: 7 },
   requirementText: { color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
-  successPage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: layout.maxWidth, paddingBottom: 26, paddingHorizontal: 20, paddingTop: 210, width: '100%' },
+  successPage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: 540, paddingBottom: 26, paddingHorizontal: 20, paddingTop: 210, width: '100%' },
   successContent: { alignItems: 'center', position: 'relative' },
   successIconBack: { backgroundColor: '#9BE9D8', borderRadius: 13, height: 48, left: '50%', marginLeft: -29, position: 'absolute', top: 7, transform: [{ rotate: '-5deg' }], width: 48 },
   successIcon: { alignItems: 'center', backgroundColor: colors.success, borderRadius: 13, height: 48, justifyContent: 'center', transform: [{ rotate: '8deg' }], width: 48 },

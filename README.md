@@ -8,7 +8,7 @@ Tạo, Tin nhắn và Hồ sơ.
 Tab Match là trung tâm tìm và quản lý hoạt động: mở chế độ khám phá toàn màn hình,
 xem chi tiết, gửi yêu cầu tham gia, xem yêu cầu đang chờ, hoặc quản lý hoạt động
 đã đăng và duyệt thành viên. Khi được duyệt, mỗi hoạt động có nhóm riêng với
-Chat, Kế hoạch, Chi phí và Thành viên, sau đó đi qua trạng thái đang diễn ra,
+Chat, Kế hoạch và Thành viên (host có thêm Quản lý), sau đó đi qua trạng thái đang diễn ra,
 tổng kết và đánh giá.
 
 ## Chạy dự án
@@ -25,6 +25,8 @@ Quét QR bằng Expo Go hoặc nhấn `a` để mở Android emulator. Trên Pow
 
 - `npm.cmd run typecheck`: kiểm tra TypeScript.
 - `npm.cmd run lint`: kiểm tra mã bằng Expo ESLint.
+- `node --test tests/profile-date.test.cjs`: kiểm tra định dạng, xóa ký tự và ngày sinh hợp lệ.
+- `npm.cmd run test:integration`: chạy dịch vụ FE với BE và MongoDB tạm thời.
 - `npx.cmd expo-doctor`: kiểm tra cấu hình và dependency Expo.
 - `npx.cmd expo export --platform android --output-dir dist`: tạo Android bundle.
 
@@ -37,11 +39,17 @@ Quét QR bằng Expo Go hoặc nhấn `a` để mở Android emulator. Trên Pow
 - `src/data/activities.ts`: dữ liệu activity mẫu cho Match.
 - `src/services/api.ts`: URL API, Bearer token, đăng nhập/đăng xuất, lỗi và timeout.
 - `src/services/activityApi.ts`: khám phá, hoạt động đã tham gia/tổ chức, yêu cầu và thành viên.
-- `src/services/activityService.ts`: chuyển form tạo hoạt động sang contract BE, giờ Việt Nam sang UTC và upload ảnh bìa.
+- `src/services/activityService.ts`: chuyển form tạo hoạt động sang contract BE, giờ Việt Nam sang UTC và upload bộ ảnh.
 - `src/assets/Activity-image/`: ảnh prototype cũ; dữ liệu hoạt động API dùng ảnh trực tuyến.
 - `docs/`: nhật ký phát triển và quyết định sản phẩm/kỹ thuật.
 
 ## Kết nối BE
+
+Khi phát triển, để trống `EXPO_PUBLIC_API_BASE_URL`: app lấy địa chỉ máy chạy Expo
+(native) hoặc hostname của trình duyệt (web), dùng API cổng `3000`. Cách này tránh
+IP LAN cũ khi đổi Wi-Fi. Backend cần đang chạy; thiết bị thật dùng chung mạng với
+máy tính và BE đặt `HOST=0.0.0.0`. Expo tunnel không tự đưa API lên internet;
+trường hợp đó cần cấu hình URL API riêng.
 
 Sao chép `.env.example` thành `.env.local`. Dùng `EXPO_PUBLIC_API_BASE_URL` theo
 [quy tắc biến môi trường Expo](https://docs.expo.dev/guides/environment-variables/).
@@ -55,7 +63,10 @@ Khởi động BE bằng `npm.cmd start` tại `../GoMate-BE`, FE bằng `npm.cm
 tại thư mục này. Khởi động lại Expo sau khi thay đổi biến môi trường.
 Đăng ký/xác minh email và đăng nhập dùng API thật; mã xác minh có 6 số, mật khẩu
 cần 6–128 ký tự, không bắt buộc chữ hoa/số/ký tự đặc biệt. Xác minh email thành công
-tự cấp phiên đăng nhập và vào app. Token hiện giữ trong bộ nhớ; tải lại ứng dụng cần đăng nhập lại.
+tự cấp phiên đăng nhập và vào bước hoàn thiện hồ sơ. Trên web, phiên đăng nhập được lưu trong localStorage,
+khôi phục khi tải lại và bị xóa khi đăng xuất hoặc API trả 401; thời hạn do BE quản lý.
+Các màn hình dùng URL hash `#/app/<tab>/<screen>/<id>` và hỗ trợ Back/Forward.
+Trên native, token được lưu bằng Expo SecureStore và khôi phục khi mở lại app.
 
 Home, Match, tạo hoạt động, chờ duyệt, host duyệt/từ chối, danh sách đã tham gia
 và thành viên đã nối BE. `/activities/mine` chỉ dùng cho hoạt động host tổ chức;
@@ -63,13 +74,33 @@ và thành viên đã nối BE. `/activities/mine` chỉ dùng cho hoạt độn
 dùng cho yêu cầu chờ. Danh sách có phân trang tự tải đủ và kéo xuống để làm mới.
 Thao tác rời/loại thành viên chỉ khả dụng trước khi hoạt động bắt đầu.
 
-Tạo hoạt động hỗ trợ một ảnh bìa JPEG/PNG/WebP tối đa 2 MB; upload cần Cloudinary.
-Cấu hình quỹ được lưu trong BE, chưa thực hiện giao dịch tiền. Ngày nhập
-`DD/MM/YYYY`, giờ `HH:mm`; hạn đăng ký/đóng tiền phải không muộn hơn giờ bắt đầu.
+Tạo/sửa hoạt động hỗ trợ tối đa 6 ảnh JPEG/PNG/WebP, mỗi ảnh tối đa 10 MB;
+ảnh đầu là ảnh bìa, upload cần Cloudinary. Số thành viên từ 2–1000, tính cả host.
+Chi phí dự kiến không bắt buộc; không yêu cầu cọc, đóng đủ hoặc hạn đóng tiền.
+Ngày nhập `DD/MM/YYYY`, giờ `HH:mm`; hạn đăng ký không muộn hơn giờ bắt đầu.
+Host có thể sửa trước giờ bắt đầu, xóa (có xác nhận), bắt đầu, điểm danh và kết thúc
+(có xác nhận). Điểm danh và lịch sử cập nhật lưu trên BE; sau khi kết thúc không thể sửa điểm danh.
 
-Hồ sơ dùng GET/PATCH `/profile/me` và PUT `/profile/me/avatar`. App nhắc hoàn thiện
-khi thiếu họ tên, khu vực, giới thiệu, sở thích hoặc ngôn ngữ. Giới tính, ngày sinh,
-tôn giáo và khả năng uống rượu là thông tin tự nguyện; không tính vào độ hoàn thiện.
+Hồ sơ dùng GET/PATCH `/profile/me` và PUT `/profile/me/avatar`. App yêu cầu hoàn thiện
+theo hai bước: (1) họ tên, ngày sinh, giới tính, tỉnh / thành phố và ngôn ngữ;
+(2) giới thiệu, sở thích và gợi ý tìm người đồng hành. Ngày sinh hiển thị `DD-MM-YYYY`,
+tự chèn dấu khi gõ và có bộ chọn cuộn ngày/tháng/năm; API vẫn dùng `YYYY-MM-DD`.
+Có thể chọn giới tính "Không tiết lộ". Ngôn ngữ dùng bộ chọn cuộn, mặc định
+Tiếng Việt, chọn từ một ngôn ngữ trở lên. Khu vực chỉ chọn cấp tỉnh/thành phố;
+danh mục theo [Cổng TTĐT Chính phủ](https://chinhphu.vn/cac-tinh-thanh-pho-68349).
+Sở thích hỗ trợ tìm không dấu, thêm mục riêng và chọn tối đa 12 mục.
+
+Hồ sơ GoMate có tab chỉnh sửa/xem trước, tối đa 6 ảnh hoạt động cá nhân (10 MB/ảnh),
+sắp xếp bằng nút trước/sau, mục tiêu tìm bạn đồng hành, thời gian rảnh, hai câu gợi ý,
+công việc và học vấn tùy chọn. Avatar đầu trang dùng ảnh tài khoản và mở tab hồ sơ.
+Menu hồ sơ có chỉnh sửa, xem trước, xác minh, điểm đánh giá, hoạt động, thông báo
+và cài đặt. Xác minh hiện hiển thị trạng thái email; chưa có xác minh giấy tờ.
+Trang điểm đánh giá đọc dữ liệu đã lưu trong `activity_ratings`, có trạng thái chưa
+có đánh giá; người đã điểm danh có mặt/đến muộn có thể gửi đánh giá thật sau hoạt động.
+
+Trong Match, nút quay lại mở ngay bài vừa bỏ qua, không hiện cảnh báo. Sau khi
+quay lại, nút bị vô hiệu hóa cho tới lần bỏ qua kế tiếp; không thể lùi qua hai bài
+liên tiếp. Chấp nhận một hoạt động sẽ xóa lịch sử bỏ qua ngay trước đó.
 
 Match và tạo hoạt động dùng lịch chọn ngày, các buổi sáng/chiều/tối và giờ cụ thể
 theo mốc 15 phút (có thể nhập HH:mm khác). Match gửi ngày/giờ chính xác tới BE;
@@ -100,9 +131,36 @@ trải trong 10 ngày, có tọa độ, lịch, chi phí, quy mô và một số
 Đây là dữ liệu minh họa, không phải lịch sự kiện thật. Seed lại giữ nguyên ngày đã lưu
 và không phục hồi người đã rời nhóm. Nguồn ảnh: [docs/demo.md](../GoMate-BE/docs/demo.md).
 
-Các màn hình tin nhắn/chat, thông báo, tiến trình, chi phí và đánh giá vẫn
-là prototype. Google/Apple chưa tích hợp UI đăng nhập. Chưa kiểm tra trên thiết bị thật.
+Chat, thông báo, tiến trình và đánh giá đã nối API thật. Chi phí là dự toán, chưa có xử lý giao dịch.
+Google đã có luồng tích hợp nhưng chưa cấu hình provider theo yêu cầu; Apple chưa tích hợp.
+Chưa kiểm tra trên thiết bị thật.
 
 `npm.cmd run test:integration` chạy service FE thực tế với BE và MongoDB tạm,
 không ghi vào database ứng dụng. Cần cài dependencies ở cả hai thư mục;
 MongoDB binary được tải ở lần kiểm thử đầu tiên.
+
+## Kiểm thử trình duyệt P0
+
+`npm run test:web` dùng Playwright, BE thật và MongoDB tạm thời; email và kho ảnh
+được thay bằng bộ nhớ, không gửi email hoặc ghi Cloudinary. Kiểm thử bao gồm
+Back/Forward, tải lại, responsive 390/768/1440 px, chọn nhiều ảnh, sửa/xóa,
+bắt đầu/kết thúc/điểm danh, OTP và đăng ký → hoàn thiện hồ sơ.
+
+```powershell
+$env:EXPO_PUBLIC_API_BASE_URL='/api'
+npx.cmd expo export --platform web --clear
+npm.cmd run test:web
+```
+
+Chrome trên Windows được phát hiện tự động; nếu chưa có trình duyệt, chạy
+`npx playwright install chromium`, hoặc đặt `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
+Ảnh chụp được ghi vào thư mục tạm và in đường dẫn khi chạy. Nếu đã có MongoDB binary,
+có thể đặt `MONGOMS_SYSTEM_BINARY` để dùng lại thay vì tải binary kiểm thử.
+
+Match P1/P2, bản đồ/GPS, yêu thích, ảnh bìa và Google tùy chọn: [docs/MATCH_FEATURES.md](docs/MATCH_FEATURES.md).
+
+Luồng tạo hoạt động 4 bước, kế hoạch chuyến đi và bạn bè/chat: [docs/ACTIVITY_CREATION_AND_FRIENDS.md](docs/ACTIVITY_CREATION_AND_FRIENDS.md).
+
+Giao diện tạo bài, quản lý host và chat mới: [docs/ACTIVITY_CHAT_AND_MANAGEMENT.md](docs/ACTIVITY_CHAT_AND_MANAGEMENT.md).
+
+Cài đặt, thông báo, đánh giá và an toàn: [docs/ACCOUNT_COMPLETION.md](docs/ACCOUNT_COMPLETION.md).

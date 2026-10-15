@@ -1,68 +1,61 @@
-import { ComponentProps, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useRef, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { Text } from '../components/LocalizedText';
+import { FormField } from '../components/FormField';
+import { RemoteState } from '../components/RemoteState';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Activity } from '../data/activities';
-import { colors, layout, radii } from '../theme';
+import { getSession } from '../services/api';
+import { addActivityUpdate, Attendance, getActivity, listAttendance, listUpdates, markAttendance, toActivity, transitionActivity } from '../services/activityApi';
+import { useRemote } from '../services/useRemote';
+import { colors, layout } from '../theme';
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
+const attendanceLabels: Record<Attendance['status'], string> = { unmarked: 'Chưa điểm danh', present: 'Có mặt', absent: 'Vắng', late: 'Đến muộn' };
+export function ActivityProgressScreen({ activity, onBack, onEnd }: { activity: Activity; onBack: () => void; onEnd: (activity: Activity) => void }) {
+  const loader = useCallback(async () => { const [current, attendance, updates] = await Promise.all([getActivity(activity.id), listAttendance(activity.id), listUpdates(activity.id)]); return { current, attendance, updates }; }, [activity.id]);
+  const remote = useRemote(loader, null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [note, setNote] = useState('');
+  const lock = useRef(false);
+  const isHost = remote.data?.current.hostId === getSession()?.user.id;
+  const canChange = isHost && remote.data?.current.status === 'in-progress';
+  const run = async (action: () => Promise<void>) => {
+    if (lock.current) return;
+    lock.current = true; setBusy(true); setError('');
+    try { await action(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không lưu được thay đổi'); }
+    finally { lock.current = false; setBusy(false); }
+  };
 
-const actions: { icon: IconName; label: string; note: string }[] = [
-  { icon: 'time-outline', label: 'Cập nhật thời gian', note: 'Thông báo cho cả nhóm' },
-  { icon: 'location-outline', label: 'Cập nhật địa điểm', note: 'Đổi điểm hẹn hiện tại' },
-  { icon: 'wallet-outline', label: 'Thêm chi phí', note: 'Chia chi phí với thành viên' },
-  { icon: 'people-outline', label: 'Cập nhật thành viên', note: 'Điểm danh nhóm' },
-  { icon: 'images-outline', label: 'Thêm ảnh kỷ niệm', note: 'Lưu lại khoảnh khắc' },
-];
-
-export function ActivityProgressScreen({ activity, onBack, onEnd }: { activity: Activity; onBack: () => void; onEnd: () => void }) {
-  const [updates, setUpdates] = useState(['Host đã bắt đầu hoạt động', 'Điểm tập trung đã được xác nhận']);
-
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScreenHeader onBack={onBack} subtitle={activity.title} title="Đang diễn ra" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.page}>
-          <View style={styles.liveCard}><View style={styles.liveDot} /><View style={styles.liveCopy}><Text style={styles.liveLabel}>ACTIVITY IN PROGRESS</Text><Text style={styles.liveTitle}>{activity.title}</Text><Text style={styles.liveMeta}>{activity.time} · {activity.location}</Text></View><Ionicons color={colors.white} name="pulse" size={25} /></View>
-
-          <Text style={styles.sectionTitle}>Cập nhật nhanh</Text>
-          <View style={styles.actionGrid}>{actions.map((action) => <Pressable key={action.label} onPress={() => setUpdates((current) => [`${action.label} vừa được ghi nhận`, ...current])} style={styles.action}><View style={styles.actionIcon}><Ionicons color={colors.primary} name={action.icon} size={20} /></View><Text style={styles.actionLabel}>{action.label}</Text><Text style={styles.actionNote}>{action.note}</Text></Pressable>)}</View>
-
-          <Text style={styles.sectionTitle}>Updates</Text>
-          <View style={styles.updatesCard}>{updates.map((update, index) => <View key={`${update}-${index}`} style={styles.updateRow}><View style={styles.updateDot} /><View style={styles.updateCopy}><Text style={styles.updateText}>{update}</Text><Text style={styles.updateTime}>{index === 0 ? 'Vừa xong' : '10 phút trước'}</Text></View></View>)}</View>
-
-          <Pressable onPress={onEnd} style={styles.endButton}><Ionicons color={colors.danger} name="stop-circle-outline" size={20} /><Text style={styles.endText}>Kết thúc hoạt động</Text></Pressable>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+  return <SafeAreaView style={styles.safe}>
+    <ScreenHeader onBack={onBack} title={remote.data?.current.status === 'completed' ? 'Đã kết thúc' : 'Đang diễn ra'} subtitle={activity.title} />
+    <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={remote.loading} onRefresh={remote.reload} />}>
+      <RemoteState {...remote} onRetry={remote.reload} />
+      {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
+      {remote.data && !remote.loading && !remote.error && <>
+        <Text style={styles.title}>Điểm danh ({remote.data.attendance.filter(item => ['present', 'late'].includes(item.status)).length}/{remote.data.attendance.length})</Text>
+        {remote.data.attendance.map(member => <View key={member.userId} style={styles.card}><Text style={styles.title}>{member.name}</Text><Text>{attendanceLabels[member.status]}</Text>
+          {canChange && <View style={styles.row}>{(Object.keys(attendanceLabels) as Attendance['status'][]).map(status => <Pressable key={status} disabled={busy} style={[styles.button, member.status === status && { backgroundColor: colors.primarySoft }]} onPress={() => void run(async () => { await markAttendance(activity.id, member.userId, status); await remote.reload(); })}><Text style={styles.link}>{attendanceLabels[status]}</Text></Pressable>)}</View>}
+        </View>)}
+        {canChange && <View style={styles.card}><FormField label="Cập nhật cho nhóm" multiline value={note} onChangeText={setNote} /><ActionButton disabled={busy} label="Đăng cập nhật" onPress={() => void run(async () => { if (!note.trim()) throw new Error('Nhập nội dung cập nhật.'); await addActivityUpdate(activity.id, note.trim()); setNote(''); await remote.reload(); })} /></View>}
+        <Text style={styles.title}>Lịch sử hoạt động</Text>
+        {remote.data.updates.map(update => <View key={update.id} style={styles.card}><Text>{update.text || (update.type === 'started' ? 'Đã bắt đầu hoạt động' : update.type === 'completed' ? 'Đã kết thúc hoạt động' : update.type === 'schedule-confirmed' ? 'Host đã chốt lịch đi' : `Điểm danh: ${remote.data!.attendance.find(member => member.userId === update.userId)?.name || ''} · ${attendanceLabels[update.status as Attendance['status']] || ''}`)}</Text><Text>{new Date(update.createdAt).toLocaleString('vi-VN')}</Text></View>)}
+        {canChange && remote.data.attendance.some(item => item.status === 'unmarked') && <Text style={{ color: colors.warningText, lineHeight: 21 }}>Còn {remote.data.attendance.filter(item => item.status === 'unmarked').length} người chưa điểm danh. Chỉ người được đánh dấu có mặt hoặc đến muộn mới có thể gửi đánh giá sau hoạt động.</Text>}
+        {canChange && <ActionButton disabled={busy} label="Kết thúc hoạt động" onPress={() => setConfirmEnd(true)} />}
+        {canChange && confirmEnd && <View style={styles.card}><Text>Xác nhận kết thúc? Sau khi kết thúc sẽ không thể thay đổi điểm danh.</Text><ActionButton disabled={busy} label="Tiếp tục hoạt động" onPress={() => setConfirmEnd(false)} /><ActionButton disabled={busy} label="Xác nhận kết thúc" onPress={() => void run(async () => { const row = await transitionActivity(activity.id, 'complete'); onEnd(toActivity(row)); })} /></View>}
+        {remote.data.current.status === 'completed' && <ActionButton label="Xem tổng kết" onPress={() => onEnd(toActivity(remote.data!.current))} />}
+      </>}
+    </ScrollView>
+  </SafeAreaView>;
 }
-
+function ActionButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  return <Pressable disabled={disabled} onPress={onPress} style={[styles.button, disabled && { opacity: 0.5 }]}><Text style={styles.link}>{label}</Text></Pressable>;
+}
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 28 },
-  page: { alignSelf: 'center', maxWidth: layout.maxWidth, padding: 18, width: '100%' },
-  liveCard: { alignItems: 'center', backgroundColor: colors.primary, borderRadius: radii.largeCard, flexDirection: 'row', padding: 18 },
-  liveDot: { backgroundColor: colors.success, borderColor: colors.white, borderRadius: 7, borderWidth: 3, height: 14, marginRight: 12, width: 14 },
-  liveCopy: { flex: 1 },
-  liveLabel: { color: 'rgba(255,255,255,0.72)', fontSize: 9.5, fontWeight: '900', letterSpacing: 1.1 },
-  liveTitle: { color: colors.white, fontSize: 19, fontWeight: '900', marginTop: 6 },
-  liveMeta: { color: 'rgba(255,255,255,0.78)', fontSize: 10.5, marginTop: 5 },
-  sectionTitle: { color: colors.text, fontSize: 17, fontWeight: '900', marginBottom: 11, marginTop: 22 },
-  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  action: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.card, borderWidth: 1, padding: 14, width: '48.5%' },
-  actionIcon: { alignItems: 'center', backgroundColor: colors.primarySoft, borderRadius: 13, height: 36, justifyContent: 'center', width: 36 },
-  actionLabel: { color: colors.text, fontSize: 12.5, fontWeight: '800', marginTop: 11 },
-  actionNote: { color: colors.textMuted, fontSize: 9.5, lineHeight: 14, marginTop: 4 },
-  updatesCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.card, borderWidth: 1, padding: 15 },
-  updateRow: { flexDirection: 'row', marginBottom: 13 },
-  updateDot: { backgroundColor: colors.success, borderRadius: 5, height: 10, marginTop: 3, width: 10 },
-  updateCopy: { flex: 1, marginLeft: 10 },
-  updateText: { color: colors.text, fontSize: 12.5, fontWeight: '700' },
-  updateTime: { color: colors.textMuted, fontSize: 9.5, marginTop: 4 },
-  endButton: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.danger, borderRadius: radii.button, borderWidth: 1, flexDirection: 'row', justifyContent: 'center', marginTop: 20, minHeight: 52 },
-  endText: { color: colors.danger, fontSize: 13.5, fontWeight: '800', marginLeft: 7 },
+  safe: { flex: 1, backgroundColor: colors.background }, page: { alignSelf: 'center', maxWidth: layout.maxWidth, width: '100%', padding: 18, gap: 14 },
+  card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 16, gap: 10 },
+  title: { color: colors.text, fontSize: 18, fontWeight: '700' }, row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  button: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, alignItems: 'center' }, link: { color: colors.primary, fontWeight: '600' },
 });

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './LocalizedText';
-import { FormField } from './FormField';
+import { SelectionField } from './SelectionField';
+import { profileLanguages } from '../data/profileOptions';
 import { colors } from '../theme';
 
-export type ParticipantPreferences = { genders: string[]; languages: string[]; religions: string[]; alcohol: 'any' | 'yes' | 'no'; dressCode: string };
+export type ParticipantPreferences = { minAge?: number; maxAge?: number; genders: string[]; languages: string[]; religions: string[]; alcohol: 'any' | 'yes' | 'no'; dressCode: string };
 export const emptyPreferences: ParticipantPreferences = { genders: [], languages: [], religions: [], alcohol: 'any', dressCode: '' };
 export const genderOptions = [['male', 'Nam'], ['female', 'Nữ'], ['other', 'Giới tính khác'], ['undisclosed', 'Không tiết lộ']] as const;
 export const religionOptions = [['none', 'Không tôn giáo'], ['buddhist', 'Phật giáo'], ['catholic', 'Công giáo'], ['protestant', 'Tin lành'], ['muslim', 'Hồi giáo'], ['hindu', 'Ấn Độ giáo'], ['other', 'Khác'], ['undisclosed', 'Không tiết lộ']] as const;
@@ -12,29 +13,28 @@ export const languageOptions = ['Tiếng Việt', 'English', '中文', '日本�
 export const interestOptions = ['Cà phê', 'Ẩm thực', 'Cầu lông', 'Chạy bộ', 'Du lịch', 'Âm nhạc', 'Board game', 'Học tập', 'Gaming', 'Nhiếp ảnh', 'Yoga', 'Nghệ thuật'].map(value => [value, value] as const);
 
 export function OptionChips({ label, options, selected, onChange, single = false }: { label: string; options: readonly (readonly [string, string])[]; selected: string[]; onChange: (values: string[]) => void; single?: boolean }) {
-  return <View style={styles.group}><Text style={styles.label}>{label}</Text><View style={styles.row}>{options.map(([value, text]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: selected.includes(value) }} onPress={() => onChange(single ? [value] : selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value])} style={[styles.chip, selected.includes(value) && styles.active]}><Text style={selected.includes(value) ? styles.activeText : styles.text}>{text}</Text></Pressable>)}</View></View>;
+  return <View style={styles.group}><Text style={styles.label}>{label}</Text><View style={styles.row}>{options.map(([value, text]) => <Pressable key={value} accessibilityRole="button" aria-selected={selected.includes(value)} accessibilityState={{ selected: selected.includes(value) }} onPress={() => onChange(single ? [value] : selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value])} style={[styles.chip, selected.includes(value) && styles.active]}><Text style={selected.includes(value) ? styles.activeText : styles.text}>{text}</Text></Pressable>)}</View></View>;
 }
 
 export function AdvancedPreferences({ value, onChange, filter = false }: { value: ParticipantPreferences; onChange: (value: ParticipantPreferences) => void; filter?: boolean }) {
   const [open, setOpen] = useState(false);
-  const count = value.genders.length + value.languages.length + value.religions.length + (value.alcohol !== 'any' ? 1 : 0) + (value.dressCode ? 1 : 0);
+  const count = value.genders.length + value.languages.length + (value.minAge ? 1 : 0) + (value.maxAge ? 1 : 0);
   const patch = (fields: Partial<ParticipantPreferences>) => onChange({ ...value, ...fields });
-  return <View style={styles.panel}><Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen(!open)}><Text style={styles.title}>Tùy chọn nâng cao {count ? `(${count})` : ''} {open ? '−' : '+'}</Text><Text style={styles.hint}>{filter ? 'Lọc nhóm phù hợp với tùy chọn của bạn' : 'Giới tính, ngôn ngữ, tôn giáo, đồ uống và trang phục'}</Text></Pressable>
-    {open && <View style={styles.group}>
-      <Text style={styles.hint}>{filter ? 'Nhóm không giới hạn vẫn được hiển thị.' : 'Để trống để không giới hạn. Giới tính, tôn giáo và khả năng uống rượu chỉ dùng khi người tham gia tự cung cấp.'}</Text>
-      <OptionChips label="Giới tính" options={genderOptions} selected={value.genders} onChange={genders => patch({ genders })} single={filter} />
-      <OptionChips label="Ngôn ngữ giao tiếp" options={languageOptions} selected={value.languages} onChange={languages => patch({ languages })} single={filter} />
-      <OptionChips label="Quan điểm tôn giáo" options={religionOptions} selected={value.religions} onChange={religions => patch({ religions })} single={filter} />
-      <OptionChips label="Khả năng uống rượu" options={[[ 'any', 'Không yêu cầu' ], ['yes', 'Có thể uống'], ['no', 'Không uống']]} selected={[value.alcohol]} onChange={values => patch({ alcohol: values[0] as ParticipantPreferences['alcohol'] })} single />
-      {filter ? <OptionChips label="Dress code" options={[['', 'Bất kỳ'], ['yes', 'Có yêu cầu'], ['no', 'Không yêu cầu']]} selected={[value.dressCode]} single onChange={values => patch({ dressCode: values[0] })} /> : <FormField label="Dress code (không bắt buộc)" placeholder="Ví dụ: áo trắng, giày thể thao" value={value.dressCode} onChangeText={dressCode => patch({ dressCode })} />}
-      <Pressable onPress={() => onChange({ ...emptyPreferences })}><Text style={styles.activeText}>Xóa tùy chọn nâng cao</Text></Pressable>
+  const ages = [{ value: '0', label: 'Không giới hạn' }, ...Array.from({ length: 120 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} tuổi` }))];
+  return <View style={styles.panel}><Pressable accessibilityRole="button" accessibilityLabel="Tùy chọn nâng cao" accessibilityState={{ expanded: open }} onPress={() => setOpen(!open)}><Text style={styles.title}>Tùy chọn nâng cao {count ? `(${count})` : ''} {open ? '−' : '+'}</Text><Text style={styles.hint}>Độ tuổi, giới tính và ngôn ngữ · chọn bằng cuộn</Text></Pressable>
+    {open && <View style={styles.group}><Text style={styles.hint}>{filter ? 'Nhóm không giới hạn vẫn được hiển thị. Khoảng tuổi lọc theo phần giao nhau.' : 'Để trống nếu không giới hạn. Điều kiện được đối chiếu với hồ sơ khi tham gia.'}</Text>
+      <View style={{ flexDirection: 'row', gap: 12 }}><View style={{ flex: 1 }}><SelectionField label="Tuổi từ" options={ages} selected={[String(value.minAge || 0)]} onChange={values => patch({ minAge: Number(values[0] || 0) })} /></View><View style={{ flex: 1 }}><SelectionField label="Đến tuổi" options={ages} selected={[String(value.maxAge || 0)]} onChange={values => patch({ maxAge: Number(values[0] || 0) })} /></View></View>
+      <SelectionField label="Giới tính tham gia" options={genderOptions.map(([key, label]) => ({ value: key, label }))} selected={value.genders} onChange={genders => patch({ genders })} multiple={!filter} emptyLabel="Không giới hạn" />
+      <SelectionField label="Ngôn ngữ của nhóm" options={profileLanguages.map(label => ({ value: label, label }))} selected={value.languages} onChange={languages => patch({ languages })} multiple={!filter} searchable emptyLabel="Không giới hạn" />
+      <Pressable accessibilityRole="button" onPress={() => onChange({ ...emptyPreferences })}><Text style={styles.activeText}>Xóa tùy chọn nâng cao</Text></Pressable>
     </View>}
   </View>;
 }
 
 export function PreferencesSummary({ value }: { value?: ParticipantPreferences }) {
-  if (!value || (!value.genders.length && !value.languages.length && !value.religions.length && value.alcohol === 'any' && !value.dressCode)) return null;
-  return <View style={styles.group}><Text style={styles.label}>Điều kiện tham gia</Text>
+  if (!value || (!value.genders.length && !value.languages.length && !value.religions.length && value.alcohol === 'any' && !value.dressCode && !value.minAge && !value.maxAge)) return null;
+  return <View style={styles.group}><Text style={styles.label}>Tùy chọn nhóm</Text>
+    {(value.minAge || value.maxAge) ? <Text>Độ tuổi: {value.minAge || 0}–{value.maxAge || 120}</Text> : null}
     {value.genders.length ? <Text>Giới tính: {value.genders.map(value => genderOptions.find(([key]) => key === value)?.[1] || value).join(', ')}</Text> : null}
     {value.languages.length ? <Text>Ngôn ngữ: {value.languages.join(', ')}</Text> : null}
     {value.religions.length ? <Text>Tôn giáo: {value.religions.map(value => religionOptions.find(([key]) => key === value)?.[1] || value).join(', ')}</Text> : null}

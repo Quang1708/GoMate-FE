@@ -4,6 +4,12 @@ function isoDate(value: string) { const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.ex
 export function activityQuery(filters?: ActivityFilters) {
   if (!filters) return '';
   const query = new URLSearchParams();
+  query.set('sort', filters.sort || 'recommended');
+  if (filters.organizerType && filters.organizerType !== 'all') query.set('organizerType', filters.organizerType);
+  if (filters.coordinates) {
+    query.set('lat', String(filters.coordinates.latitude)); query.set('lng', String(filters.coordinates.longitude));
+    if (filters.radiusEnabled) query.set('distanceKm', String(filters.distance));
+  }
   if (filters.categories.length) query.set('categories', filters.categories.join(','));
   if (filters.minBudget) query.set('minCost', String(filters.minBudget));
   if (filters.maxBudget < 2000000) query.set('maxCost', String(filters.maxBudget));
@@ -15,6 +21,8 @@ export function activityQuery(filters?: ActivityFilters) {
   if (filters.minimumCapacity) query.set('minParticipants', String(filters.minimumCapacity));
   if (filters.maximumCapacity) query.set('maxParticipants', String(filters.maximumCapacity));
   const preferences = filters.preferences;
+  if (preferences.minAge) query.set('minAge', String(preferences.minAge));
+  if (preferences.maxAge) query.set('maxAge', String(preferences.maxAge));
   if (preferences.genders[0]) query.set('gender', preferences.genders[0]);
   if (preferences.languages[0]) query.set('language', preferences.languages[0]);
   if (preferences.religions[0]) query.set('religion', preferences.religions[0]);

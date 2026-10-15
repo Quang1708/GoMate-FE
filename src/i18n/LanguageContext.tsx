@@ -1,4 +1,6 @@
-import { createContext, PropsWithChildren, useContext, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import { createContext, PropsWithChildren, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export type Language = 'vi' | 'en';
 
@@ -275,7 +277,6 @@ const entries: Translation[] = [
   { vi: 'Mô tả thêm (tùy chọn)', en: 'Add details (optional)' }, { vi: 'Gửi báo cáo', en: 'Submit report' },
   { vi: 'Nguyên tắc cộng đồng', en: 'Community guidelines' }, { vi: 'Mẹo an toàn khi tham gia hoạt động', en: 'Safety tips for joining activities' },
   { vi: 'Cách báo cáo', en: 'How to report' }, { vi: 'Liên hệ hỗ trợ', en: 'Contact support' }, { vi: 'Liên hệ khẩn cấp', en: 'Emergency contact' },
-  { vi: 'Quay lại 1 lần', en: 'Undo once' }, { vi: 'Bạn chỉ có thể quay lại 1 hoạt động gần nhất trong mỗi phiên Match.', en: 'You can only return to the most recently skipped activity once per Match session.' },
   { vi: 'Quay lại', en: 'Undo' }, { vi: 'Hủy', en: 'Cancel' }, { vi: 'Không quan tâm', en: 'Not interested' },
   { vi: 'GoMate sẽ giảm ưu tiên các hoạt động tương tự trong thời gian tới.', en: 'GoMate will show fewer similar activities in the future.' },
   { vi: 'Thời gian rảnh', en: 'Availability' }, { vi: 'Chọn ngày rảnh', en: 'Choose available days' },
@@ -319,13 +320,16 @@ const viLookup = new Map(entries.flatMap((entry) => [[entry.vi, entry], [entry.e
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: PropsWithChildren) {
-  const [language, setLanguage] = useState<Language>('vi');
+  const [language, setLanguageState] = useState<Language>(() => { try { return Platform.OS === 'web' && localStorage.getItem('gomate.language') === 'en' ? 'en' : 'vi'; } catch { return 'vi'; } });
+  const changed = useRef(false);
+  useEffect(() => { let alive = true; if (Platform.OS !== 'web') void SecureStore.getItemAsync('gomate.language').then(value => { if (alive && !changed.current && (value === 'vi' || value === 'en')) setLanguageState(value); }).catch(() => {}); return () => { alive = false; }; }, []);
+  const setLanguage = useCallback((value: Language) => { changed.current = true; setLanguageState(value); if (Platform.OS === 'web') { try { localStorage.setItem('gomate.language', value); } catch { /* Optional display preference. */ } } else void SecureStore.setItemAsync('gomate.language', value).catch(() => {}); }, []);
   const value = useMemo<LanguageContextValue>(() => ({
     language,
     setLanguage,
-    toggleLanguage: () => setLanguage((current) => current === 'vi' ? 'en' : 'vi'),
+    toggleLanguage: () => setLanguage(language === 'vi' ? 'en' : 'vi'),
     translate: (text) => viLookup.get(text)?.[language] ?? text,
-  }), [language]);
+  }), [language, setLanguage]);
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }

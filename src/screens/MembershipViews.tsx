@@ -1,3 +1,4 @@
+import { AddActivityFriends } from '../components/AddActivityFriends';
 import { useCallback, useRef, useState } from 'react';
 import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +7,7 @@ import { RemoteState } from '../components/RemoteState';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Activity } from '../data/activities';
 import { getSession } from '../services/api';
-import { cancelRequest, decideRequest, JoinRequest, leaveActivity, listJoined, listMembers, listMyRequests, listOwned, listRequests, removeMember, toActivity } from '../services/activityApi';
+import { getActivity, Member, ActivityDto, cancelRequest, leaveActivity, listJoined, listMembers, listMyRequests, listOwned, removeMember, toActivity } from '../services/activityApi';
 import { useRemote } from '../services/useRemote';
 import { colors, layout } from '../theme';
 import { imageUrl } from '../services/profileService';
@@ -65,46 +66,21 @@ export function MyActivitiesScreen({ onBack, onOpenGroup, onOpenPending }: { onB
     </ScrollView></SafeAreaView>;
 }
 
-export function ManageActivitiesScreen({ onBack, onOpenMembers }: { onBack: () => void; onOpenMembers?: (activity: Activity) => void }) {
-  const hosted = useRemote(listOwned, []);
-  const [selectedId, setSelectedId] = useState('');
-  const selected = hosted.data.find(item => item.id === selectedId) ?? hosted.data[0];
-  const activeId = selected?.id;
-  const loader = useCallback(() => activeId ? listRequests(activeId) : Promise.resolve<JoinRequest[]>([]), [activeId]);
-  const requests = useRemote(loader, []);
-  const action = useAction();
-  const decide = (requestId: string, status: 'approved' | 'rejected') => void action.run(async () => {
-    await decideRequest(selected.id, requestId, status);
-    await Promise.all([requests.reload(), hosted.reload()]);
-  });
-  return <SafeAreaView style={styles.safe}><ScreenHeader onBack={onBack} title="Quản lý hoạt động" subtitle="Hoạt động bạn tổ chức" />
-    <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={hosted.loading} onRefresh={() => { void hosted.reload(); void requests.reload(); }} />}>
-      <RemoteState {...hosted} empty={!hosted.data.length} onRetry={hosted.reload} />
-      {!hosted.loading && !hosted.error && hosted.data.map(row => <ActivityRow key={row.id} activity={toActivity(row)} onPress={() => setSelectedId(row.id)}>
-        {selected?.id === row.id && <Text style={styles.buttonText}>✓ Đang chọn</Text>}
-      </ActivityRow>)}
-      {selected && !hosted.error && <View><Text style={styles.title}>Yêu cầu tham gia · {selected.title}</Text>
-        {onOpenMembers && <Button label="Quản lý thành viên" onPress={() => onOpenMembers(toActivity(selected))} />}
-        <RemoteState {...requests} empty={!requests.data.length} onRetry={requests.reload} />
-        {action.error ? <Text>{action.error}</Text> : null}
-        {!requests.loading && !requests.error && requests.data.map(request => <View key={request.id} style={styles.card}><Text style={styles.title}>{request.name}</Text><Text>Đang chờ duyệt</Text><View style={styles.tabs}>
-          <Button disabled={action.busy} label="Từ chối" onPress={() => decide(request.id, 'rejected')} />
-          <Button disabled={action.busy} label="Duyệt" onPress={() => decide(request.id, 'approved')} />
-        </View></View>)}
-      </View>}
-    </ScrollView></SafeAreaView>;
-}
-
 export function MembersPanel({ activity, onLeft }: { activity: Activity; onLeft: () => void }) {
   const [now] = useState(Date.now);
-  const loader = useCallback(() => listMembers(activity.id), [activity.id]);
-  const remote = useRemote(loader, []);
+  const loader = useCallback(async () => { const [members, latest] = await Promise.all([listMembers(activity.id), getActivity(activity.id)]); return { members, latest }; }, [activity.id]);
+  const snapshot = useRemote<{ members: Member[]; latest: ActivityDto | null }>(loader, { members: [], latest: null });
+  const remote = { ...snapshot, data: snapshot.data.members };
+  const reservedSeats = snapshot.data.latest?.reservedSeats ?? activity.reservedSeats ?? 0;
   const action = useAction();
   const isHost = activity.hostId === getSession()?.user.id;
-  const canChange = activity.backendStatus === 'published' && Boolean(activity.startsAt && new Date(activity.startsAt).getTime() > now);
+  const latest = snapshot.data.latest;
+  const canChange = (latest?.status ?? activity.backendStatus) === 'published' && Boolean((latest?.startsAt || activity.startsAt) && new Date(latest?.startsAt || activity.startsAt!).getTime() > now);
   const [target, setTarget] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
   return <View><Text style={styles.title}>Thành viên ({remote.data.length})</Text>
+    {reservedSeats ? <Text>{reservedSeats} chỗ cho bạn đi cùng host, chưa có tài khoản.</Text> : null}
+    {canChange && isHost && <AddActivityFriends activityId={activity.id} onAdded={() => void remote.reload()} />}
     <RemoteState {...remote} onRetry={remote.reload} />
     {action.error ? <Text>{action.error}</Text> : null}
     {!remote.loading && !remote.error && remote.data.map(member => <View key={member.userId} style={styles.card}>
