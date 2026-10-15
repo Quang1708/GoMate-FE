@@ -3,6 +3,61 @@
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
 
+## 2026-10-13 - Configure LAN API access for Expo Go
+
+### Summary
+
+- Replaced the local FE localhost API URL with the PC Wi-Fi address
+  `http://10.87.28.73:3000/api`; localhost on a phone addresses the phone itself.
+- Set BE `HOST=0.0.0.0` and added the LAN Expo web origin to the CORS allowlist.
+
+### Files changed
+
+- FE `.env.local` and BE `.env` (ignored local configuration).
+- `docs/DEVELOPMENT_LOG.md`.
+
+### Verification
+
+- LAN `/api/health`: HTTP 200, `status: ok`, with matching LAN Expo CORS origin.
+- FE typecheck and lint: Passed.
+- Expo Doctor: 20/21 passed; existing installed Expo 57.0.25 versus expected
+  ~57.0.28 mismatch remains.
+- Running Expo bundle still has the old URL; Expo restart required.
+
+### Remaining work
+
+- Restart Expo and scan its QR again. Confirm phone access to the LAN health URL;
+  phone connectivity/firewall cannot be verified from this PC.
+- Update the local URL if the PC Wi-Fi IP changes.
+
+## 2026-10-13 - Restore local Expo web API connectivity
+
+### Summary
+
+- Confirmed the API was healthy, but Expo web defaulted to `/api` on port 8081
+  without a local environment file; that URL returned Expo HTML instead of API JSON.
+- Set the local FE API URL to `http://localhost:3000/api` and allowed Expo localhost
+  origins in the BE environment. Restarted Expo to load the environment.
+
+### Files changed
+
+- FE `.env.local` and BE `.env` (local ignored configuration).
+- `docs/DEVELOPMENT_LOG.md`.
+
+### Verification
+
+- API health: HTTP 200 with `status: ok` and matching Expo CORS origin.
+- Login OPTIONS: HTTP 204 with matching CORS origin; empty login POST: HTTP 400
+  with API validation JSON and matching CORS origin.
+- FE `npm.cmd run typecheck` and `npm.cmd run lint`: Passed.
+- `npx.cmd expo-doctor`: 20/21 passed; installed Expo 57.0.25 differs from
+  the declared/expected ~57.0.28. Dependencies left unchanged in this configuration fix.
+
+### Remaining work
+
+- Browser reload required. Physical devices need a LAN API URL and a BE LAN bind.
+- Existing Expo patch mismatch remains.
+
 ## 2026-10-13 - Add remote demo photos, ten members and populated activity groups
 
 ### Summary
