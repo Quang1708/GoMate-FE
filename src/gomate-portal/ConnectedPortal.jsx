@@ -1,3 +1,5 @@
+import { AdminDashboard } from './AdminDashboard';
+import { AdminWorkspace, StaffWorkspace, BusinessWorkspace } from './WorkspaceLayouts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GoogleLoginButton } from '../components/GoogleLoginButton';
 import { getSession, login, logout, post, setUnauthorizedHandler, verifyEmail } from '../services/api';
@@ -5,7 +7,6 @@ import { downloadDocument, portalApi, readDocument, saveBlob } from './portalApi
 import './gomate-portal.css';
 import './portal-connected.css';
 
-const labels = { overview: 'Tổng quan', application: 'Hồ sơ doanh nghiệp', posts: 'Bài đăng', applications: 'Duyệt doanh nghiệp', reports: 'Báo cáo', tickets: 'Hỗ trợ', users: 'Người dùng & gói', billing: 'Gói của tôi', feed: 'Bài đã xuất bản' };
 const statuses = { pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', open: 'Đang mở', closed: 'Đã đóng', active: 'Đang hoạt động', paused: 'Tạm dừng', cancelled: 'Đã hủy', resolved: 'Đã xử lý', dismissed: 'Không xử lý' };
 const date = value => value ? new Date(value).toLocaleString('vi-VN') : '—';
 function Status({ value }) { return <span className="gm-status">{statuses[value] || value}</span>; }
@@ -18,6 +19,7 @@ function useAction() {
   return { run, busy, error };
 }
 export function LoginPage({ onLogin }) {
+ const workspaceTitle = { '/admin': 'GoMate Admin', '/staff': 'GoMate Staff', '/business': 'GoMate Business' }[window.location.pathname.replace(/\/$/, '')] || 'GoMate Portal';
   const [stage, setStage] = useState('login'), [email, setEmail] = useState(''), [password, setPassword] = useState(''), [name, setName] = useState(''), [code, setCode] = useState(''), [notice, setNotice] = useState('');
   const action = useAction();
   const submit = event => { event.preventDefault(); void action.run(async () => {
@@ -28,7 +30,7 @@ export function LoginPage({ onLogin }) {
     if (stage === 'forgot') { await post('/auth/forgot-password', { email }); setStage('reset'); setNotice('Nếu tài khoản hợp lệ, mã khôi phục đã được gửi qua email.'); }
     if (stage === 'reset') { await post('/auth/reset-password', { email, code, newPassword: password }); setStage('login'); setNotice('Đã đổi mật khẩu. Đăng nhập lại để tiếp tục.'); }
   }); };
-  return <main className="portal-auth"><a href="/">GoMate · Về ứng dụng</a><section className="gm-panel portal-card"><h1>GoMate Portal</h1><p>Không gian dành cho doanh nghiệp và đội ngũ quản trị.</p><h2>{{ login: 'Đăng nhập', register: 'Tạo tài khoản', verify: 'Xác minh email', forgot: 'Quên mật khẩu', reset: 'Đặt lại mật khẩu' }[stage]}</h2>
+  return <main className="portal-auth"><a href="/">GoMate · Về ứng dụng</a><section className="gm-panel portal-card"><h1>{workspaceTitle}</h1><p>Không gian dành cho doanh nghiệp và đội ngũ quản trị.</p><h2>{{ login: 'Đăng nhập', register: 'Tạo tài khoản', verify: 'Xác minh email', forgot: 'Quên mật khẩu', reset: 'Đặt lại mật khẩu' }[stage]}</h2>
     <form onSubmit={submit}><fieldset disabled={action.busy}>
       {stage === 'register' && <Field label="Họ tên" value={name} onChange={e => setName(e.target.value)} required maxLength={100} />}
       <Field label="Email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
@@ -84,11 +86,20 @@ function Ticket({ item, staff, reload }) {
 }
 function Tickets({ me }) {
   const [revision, setRevision] = useState(0), [subject, setSubject] = useState(''), [message, setMessage] = useState(''), action = useAction(), reload = () => setRevision(v => v + 1);
-  return <><h2>Yêu cầu hỗ trợ</h2><section className="gm-panel portal-card"><form onSubmit={e => { e.preventDefault(); void action.run(async () => { await portalApi('/tickets', 'POST', { subject, message }); setSubject(''); setMessage(''); reload(); }); }}><fieldset disabled={action.busy}><Field label="Tiêu đề" required maxLength={150} value={subject} onChange={e => setSubject(e.target.value)} /><Field label="Nội dung cần hỗ trợ" required maxLength={3000} value={message} onChange={e => setMessage(e.target.value)} /><Button type="submit">Gửi yêu cầu</Button><ErrorBox error={action.error} /></fieldset></form></section><RemoteList path="/tickets" revision={revision} render={item => <Ticket item={item} staff={['staff', 'admin'].includes(me.role)} reload={reload} />} /></>;
+  return <><h2>Yêu cầu hỗ trợ</h2>{!['admin', 'staff'].includes(me.role) && <section className="gm-panel portal-card"><form onSubmit={e => { e.preventDefault(); void action.run(async () => { await portalApi('/tickets', 'POST', { subject, message }); setSubject(''); setMessage(''); reload(); }); }}><fieldset disabled={action.busy}><Field label="Tiêu đề" required maxLength={150} value={subject} onChange={e => setSubject(e.target.value)} /><Field label="Nội dung cần hỗ trợ" required maxLength={3000} value={message} onChange={e => setMessage(e.target.value)} /><Button type="submit">Gửi yêu cầu</Button><ErrorBox error={action.error} /></fieldset></form></section>}<RemoteList path="/tickets" revision={revision} render={item => <Ticket item={item} staff={['staff', 'admin'].includes(me.role)} reload={reload} />} /></>;
 }
-function UserRow({ item }) {
+function RoleEditor({ item, actorId }) {
+  const [role, setRole] = useState(item.role || 'user'), [current, setCurrent] = useState(item.role || 'user'), [saved, setSaved] = useState(false), action = useAction();
+  const disabled = item.id === actorId;
+  return <form onSubmit={event => { event.preventDefault(); void action.run(async () => {
+    setSaved(false);
+    await portalApi(`/users/${item.id}/role`, 'PATCH', { role });
+    setCurrent(role); setSaved(true);
+  }); }}><fieldset disabled={action.busy || disabled}><label>Vai trò <select aria-label="Vai trò" value={role} onChange={event => { setRole(event.target.value); setSaved(false); }}><option value="user">User</option><option value="staff">Staff</option><option value="admin">Admin</option></select></label><p>Quyền hiện tại: {current}. Thay đổi quyền sẽ yêu cầu tài khoản này đăng nhập lại.</p><Button type="submit" disabled={role === current}>Lưu vai trò</Button></fieldset>{item.effectiveRole === 'business' && <p>Tài khoản đã được duyệt doanh nghiệp. Chọn User vẫn giữ quyền doanh nghiệp từ hồ sơ đã duyệt.</p>}{disabled && <p>{'Không thể tự đổi vai trò của tài khoản đang đăng nhập.'}</p>}{saved && <p role="status">Đã cập nhật vai trò. Các phiên đăng nhập cũ đã bị thu hồi.</p>}<ErrorBox error={action.error} /></form>;
+}
+function UserRow({ item, actorId, subscriptions = false }) {
   const [plan, setPlan] = useState(item.subscription?.plan || 'free'), [status, setStatus] = useState(item.subscription?.status || 'active'), [saved, setSaved] = useState(false), action = useAction();
-  return <article className="gm-panel portal-card"><h3>{item.name}</h3><p>{item.email} · {item.role || 'user'}</p><form onSubmit={e => { e.preventDefault(); void action.run(async () => { setSaved(false); await portalApi(`/users/${item.id}/subscription`, 'PATCH', { plan, status }); setSaved(true); }); }}><fieldset disabled={action.busy}><label>Gói <select aria-label="Gói" value={plan} onChange={e => { setPlan(e.target.value); setSaved(false); }}><option value="free">Free</option><option value="plus">Plus</option></select></label><label>Trạng thái <select aria-label="Trạng thái" value={status} onChange={e => { setStatus(e.target.value); setSaved(false); }}>{['active', 'paused', 'cancelled'].map(v => <option key={v} value={v}>{statuses[v]}</option>)}</select></label><Button type="submit">Lưu gói</Button>{saved && <span role="status">Đã lưu</span>}<ErrorBox error={action.error} /></fieldset></form></article>;
+  return <article className="gm-panel portal-card"><h3>{item.name}</h3><p>{item.email}</p>{!subscriptions ? <RoleEditor item={item} actorId={actorId} /> : <form onSubmit={e => { e.preventDefault(); void action.run(async () => { setSaved(false); await portalApi(`/users/${item.id}/subscription`, 'PATCH', { plan, status }); setSaved(true); }); }}><fieldset disabled={action.busy}><label>Gói <select aria-label="Gói" value={plan} onChange={e => { setPlan(e.target.value); setSaved(false); }}><option value="free">Free</option><option value="plus">Plus</option></select></label><label>Trạng thái <select aria-label="Trạng thái" value={status} onChange={e => { setStatus(e.target.value); setSaved(false); }}>{['active', 'paused', 'cancelled'].map(v => <option key={v} value={v}>{statuses[v]}</option>)}</select></label><Button type="submit">Lưu gói</Button>{saved && <span role="status">Đã lưu</span>}<ErrorBox error={action.error} /></fieldset></form>}</article>;
 }
 function Overview({ me }) {
   const [metrics, setMetrics] = useState(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
@@ -99,17 +110,20 @@ function Overview({ me }) {
 export function GoMatePortal() {
   const [me, setMe] = useState(null), [loading, setLoading] = useState(Boolean(getSession())), [bootError, setBootError] = useState(''), [section, setSection] = useState('overview'), action = useAction();
   useEffect(() => { setUnauthorizedHandler(() => { setMe(null); setBootError(''); }); return () => setUnauthorizedHandler(); }, []);
-  const refresh = useCallback(async () => { const user = await portalApi('/me'); setMe(user); setBootError(''); }, []);
-  useEffect(() => { if (!getSession()) return; let alive = true; portalApi('/me').then(user => { if (alive) setMe(user); }).catch(error => { if (alive && getSession()) setBootError(error.message); }).finally(() => { if (alive) setLoading(false); }); return () => { alive = false; }; }, []);
+  const acceptUser = useCallback(user => { const path = user.role === 'admin' ? '/admin' : user.role === 'staff' ? '/staff' : '/business'; if (window.location.pathname !== path) window.history.replaceState(null, '', path); setMe(user); }, []);
+  const refresh = useCallback(async () => { const user = await portalApi('/me'); acceptUser(user); setBootError(''); }, [acceptUser]);
+  useEffect(() => { if (!getSession()) return; let alive = true; portalApi('/me').then(user => { if (alive) acceptUser(user); }).catch(error => { if (alive && getSession()) setBootError(error.message); }).finally(() => { if (alive) setLoading(false); }); return () => { alive = false; }; }, [acceptUser]);
   if (loading) return <main className="portal-auth">Đang tải phiên đăng nhập…</main>;
   if (bootError) return <main className="portal-auth"><ErrorBox error={bootError} /><Button onClick={() => void action.run(refresh)}>Thử lại</Button><ErrorBox error={action.error} /><Button onClick={() => void logout().catch(() => {}).finally(() => { setMe(null); setBootError(''); })}>Đăng xuất</Button></main>;
   if (!me) return <div className="gomate-portal"><LoginPage onLogin={refresh} /></div>;
-  const sections = me.role === 'admin' ? ['overview', 'applications', 'posts', 'reports', 'tickets', 'users', 'feed'] : me.role === 'staff' ? ['overview', 'posts', 'reports', 'tickets', 'feed'] : me.role === 'business' ? ['overview', 'posts', 'billing', 'application', 'tickets', 'feed'] : ['application', 'tickets', 'feed'], current = sections.includes(section) ? section : sections[0];
-  return <div className="gomate-portal"><div className="portal-layout"><aside className="portal-sidebar"><a className="gm-logo-text" href="/">GoMate</a><p>{me.name}</p><Status value={me.role} /><nav>{sections.map(key => <button key={key} className={`gm-nav-item ${current === key ? 'is-active' : ''}`} onClick={() => setSection(key)}>{labels[key]}</button>)}</nav><Button disabled={action.busy} onClick={() => void action.run(async () => { try { await logout(); } finally { setMe(null); } })}>Đăng xuất</Button><ErrorBox error={action.error} /></aside><main className="portal-main" key={current}>
-    {current === 'overview' && <Overview me={me} />}{current === 'application' && <Application me={me} refresh={refresh} />}{current === 'applications' && <Applications />}{current === 'posts' && <Posts me={me} />}{current === 'reports' && <Reports />}{current === 'tickets' && <Tickets me={me} />}
-    {current === 'users' && <><h2>Quản lý gói người dùng</h2><p>Thay đổi quyền sử dụng gói; không thực hiện thu tiền.</p><RemoteList path="/users" render={item => <UserRow item={item} />} /></>}
+  const sections = me.role === 'admin' ? ['overview', 'users', 'applications', 'posts', 'reports', 'tickets', 'subscriptions'] : me.role === 'staff' ? ['overview', 'posts', 'reports', 'tickets', 'feed'] : me.role === 'business' ? ['overview', 'posts', 'billing', 'application', 'tickets', 'feed'] : ['application', 'tickets', 'feed'], current = sections.includes(section) ? section : sections[0];
+  const Workspace = me.role === 'admin' ? AdminWorkspace : me.role === 'staff' ? StaffWorkspace : BusinessWorkspace;
+  const account = <><Button disabled={action.busy} onClick={() => void action.run(async () => { try { await logout(); } finally { setMe(null); } })}>Đăng xuất</Button><ErrorBox error={action.error} /></>;
+  return <div className="gomate-portal"><Workspace me={me} sections={sections} current={current} onSelect={setSection} account={account}>
+    {current === 'overview' && (me.role === 'admin' ? <AdminDashboard me={me} onSelect={setSection} /> : <Overview me={me} />)}{current === 'application' && <Application me={me} refresh={refresh} />}{current === 'applications' && <Applications />}{current === 'posts' && <Posts me={me} />}{current === 'reports' && <Reports />}{current === 'tickets' && <Tickets me={me} />}
+    {['users', 'subscriptions'].includes(current) && <><RemoteList path="/users" render={item => <UserRow item={item} actorId={me.id} subscriptions={current === 'subscriptions'} />} /></>}
     {current === 'billing' && <section className="gm-panel portal-card"><h2>Gói {me.subscription.plan === 'plus' ? 'GoMate Plus' : 'Free'}</h2><Status value={me.subscription.status} /><p>Liên hệ hỗ trợ để yêu cầu thay đổi gói.</p><Button onClick={() => setSection('tickets')}>Liên hệ hỗ trợ</Button><Button disabled={action.busy} onClick={() => void action.run(refresh)}>Cập nhật trạng thái gói</Button></section>}
     {current === 'feed' && <><h2>Bài đăng đã xuất bản</h2><RemoteList path="/feed" render={item => <article className={`gm-panel portal-card ${item.premium ? 'portal-premium' : ''}`}><p>{item.businessName}</p><h3>{item.title}</h3><p className="portal-text">{item.copy}</p>{item.premium && <p>{item.badge} · {item.discount}</p>}<small>{date(item.createdAt)}</small></article>} /></>}
-  </main></div></div>;
+  </Workspace></div>;
 }
 export default GoMatePortal;

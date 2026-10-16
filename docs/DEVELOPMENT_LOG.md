@@ -1,5 +1,79 @@
 # Development log
 
+## 2026-10-16 - Allow immediate Admin role assignment
+
+### Summary
+- Removed target email verification prerequisite from role API and role editor at the user's request. Self-role protection and session revocation remain. Assignment does not mark email as verified or change login verification.
+
+### Files changed
+- BE portal/repository.js, tests/portal.test.js, docs/PORTAL_API.md; FE ConnectedPortal.jsx and docs/DECISIONS.md.
+
+### Verification
+- Backend portal tests: 7/7 passed, including assignment to an unverified account without changing email_verified.
+
+### Remaining work
+- None.
+
+
+## 2026-10-16 - Admin dashboard redesign into seven functional sections
+
+### Summary
+- Organized Admin navigation into overview, users, business approvals, post moderation, reports, support and subscriptions. Split role editing from plan editing.
+- Added AdminDashboard with live metrics, refresh/error states, JSON export, clickable statistic cards and six functional shortcuts.
+- Redesigned Admin with teal sidebar, section descriptions, welcome banner, responsive statistic grid and consistent forms/cards. Removed the customer ticket creation form from operator workspaces.
+
+### Files changed
+- src/gomate-portal/AdminDashboard.jsx, WorkspaceLayouts.jsx, ConnectedPortal.jsx, portal-connected.css; tests/portal.web.cjs.
+
+### Verification
+- Typecheck, lint, web build: passed. Expo Doctor: 21/21 passed.
+- Browser portal integration: passed with temporary MongoDB, including business approvals, subscription changes in the separate section, role changes, revoked sessions, moderation, support, JSON export and responsive widths.
+- Reviewed the generated Admin dashboard screenshot at test-results/portal-admin.png.
+
+### Remaining work
+- None within this redesign scope. No real billing was introduced.
+
+
+## 2026-10-16 - Admin user role management
+
+### Summary
+- Added Admin-only PATCH /api/portal/users/:id/role for user, staff and admin. Requires verified email, blocks self changes, records actor/time and increments credential version atomically to revoke previous sessions.
+- Added role editor and save feedback to Admin user cards, separate from subscription changes. Business access still derives from approved applications and is explained in the UI.
+
+### Files changed
+- BE portal routes/repository, portal tests, Postman collection and PORTAL_API.md.
+- FE ConnectedPortal.jsx and portal.web.cjs.
+
+### Verification
+- Backend portal tests: 7/7 passed using temporary MongoDB, including authorization, validation, self protection, session revocation and business effective roles.
+- Browser portal workflow: passed, including UI role assignment and old session rejection.
+- FE typecheck, final lint and web build passed; Expo Doctor 21/21 passed.
+
+### Remaining work
+- None within role assignment scope. Business approval remains a separate workflow.
+
+
+## 2026-10-16 - Separate Admin, Staff and Business workspaces
+
+### Summary
+- Added dedicated /admin, /staff and /business web workspaces with distinct layouts, navigation and visual themes. /portal remains a compatible entry.
+- Resolve effective role from the backend before rendering the main user app; privileged accounts bypass user onboarding and redirect to their workspace. Wrong workspace URLs normalize to the authenticated role.
+- Native privileged sessions show guidance to use the web workspace instead of entering user surveys.
+
+### Files changed
+- App.tsx; src/gomate-portal/ConnectedPortal.jsx; WorkspaceLayouts.jsx; portal-connected.css; tests/portal.web.cjs; docs/DECISIONS.md.
+
+### Verification
+- npm run typecheck and npm run lint: passed.
+- Expo web export with /api base URL: passed.
+- npm run test:portal:web: passed with temporary MongoDB and Chrome; includes role redirects from root and incorrect workspace URLs, existing workflows, responsive widths and screenshots.
+- npx expo-doctor: 21/21 passed (rerun with network access after sandbox registry EACCES).
+- Reviewed Admin, Staff and Business screenshots.
+
+### Remaining work
+- Native workspaces are web-only. Staff provisioning and account locking UI are outside this interface separation task; existing API capabilities remain unchanged.
+
+
 ## 2026-10-16 - Connect Business, Staff and Admin portal to the backend
 
 ### Summary

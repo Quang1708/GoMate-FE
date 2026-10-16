@@ -1,5 +1,10 @@
 # Decision log
 
+## 2026-10-16 - Role-specific web workspaces
+
+Use separate Admin, Staff and Business layout components at /admin, /staff and /business, retaining shared API-backed forms and lists. Resolve the effective role via /api/portal/me (including approved business applications), never trust a client-selected role. Keep backend authorization as the access boundary. The main app gates user onboarding on this lookup and offers retry on network failure. Native privileged users are directed to the web workspace. /portal remains a compatibility entry for partner registration and existing links.
+
+
 ### 2026-10-16 - Server-authorized portal and administrative entitlements
 
 - **Status:** Accepted.
@@ -560,3 +565,15 @@ top. Small implementation details belong only in `DEVELOPMENT_LOG.md`.
 - **Consequences:** What becomes easier, harder, or constrained?
 - **Supersedes:** Link or title of an older decision, if applicable.
 
+
+## 2026-10-16 - Admin role assignment
+
+Expose user/staff/admin role changes only to Admin through a dedicated backend endpoint. Disallow self changes, require verified target email, and invalidate existing target sessions atomically with the role update. Retain business approval as a separate source of effective permissions rather than allowing role assignment to bypass document review.
+
+## 2026-10-16 - Separate Admin roles and subscription management
+
+Use seven functional navigation items matching the requested operator workflow. User role assignment and subscription editing have independent screens backed by the existing user list API. Dashboard cards use server aggregates only; no fabricated trends or revenue. Operator support focuses on responding to requests; customer ticket creation remains in Business.
+
+## 2026-10-16 - Immediate role assignment
+
+Supersedes the verified-target requirement: Admin can assign roles to any existing account, regardless of email verification. Preserve the email verification flag and login rules; role changes do not assert ownership of an email.

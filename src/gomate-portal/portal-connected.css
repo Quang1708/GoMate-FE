@@ -18,5 +18,109 @@
 .portal-message { border-left: 3px solid #7862d8; padding: 12px; margin: 12px 0; background: #f8f7fd; }
 .portal-premium { border: 2px solid #7862d8; }
 .portal-card .gm-btn { margin: 8px 4px 8px 0; }
+.workspace-brand { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 800; text-decoration: none; color: inherit; }
+.workspace-brand strong { font-size: 11px; letter-spacing: 1.5px; border: 1px solid currentColor; border-radius: 6px; padding: 6px 8px; }
+.workspace-body { flex: 1; min-width: 0; }
+.workspace-header { padding: 22px 32px; display: flex; justify-content: space-between; gap: 16px; background: white; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+.workspace-intro { margin-bottom: 28px; }
+.workspace-intro h1, .staff-banner h1, .business-welcome h1 { margin: 10px 0; font-size: clamp(25px, 3vw, 36px); line-height: 1.2; }
+.workspace-intro small, .staff-banner small, .business-welcome small { letter-spacing: 2px; font-weight: 700; font-size: 11px; }
+.workspace-admin { background: #f1f5f9; color: #17233c; }
+.workspace-admin .portal-sidebar { background: #14213b; color: #dbe6fa; width: 260px; border: 0; }
+.workspace-admin .portal-sidebar > p { font-size: 10px; letter-spacing: 2px; margin-top: 40px; }
+.workspace-admin .gm-nav-item { color: #cbd5e1; border-radius: 8px; }
+.workspace-admin .gm-nav-item.is-active { background: #30476b; color: white; }
+.workspace-admin .gm-btn--primary { background: #254e88; }
+.workspace-admin .portal-card { border-radius: 10px; box-shadow: 0 3px 12px #14213b05; }
+.workspace-account { border-top: 1px solid #ffffff24; padding-top: 20px; display: grid; gap: 12px; margin-top: 48px; }
+.workspace-staff { background: #f1f7f6; min-height: 100vh; color: #163d39; }
+.staff-header, .business-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 5%; background: white; }
+.staff-account { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.staff-banner { background: #164e48; color: white; padding: 32px 5% 40px; }
+.staff-tabs { background: white; padding: 12px 5%; border-bottom: 1px solid #cee2dd; }
+.staff-tabs nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.staff-tabs .gm-nav-item { width: auto; }
+.workspace-staff .gm-nav-item.is-active { background: #d9eee7; color: #145448; }
+.workspace-staff .gm-btn--primary { background: #196959; }
+.workspace-staff .portal-main { max-width: 1300px; margin: auto; }
+.workspace-staff .portal-card { border-radius: 8px; border-color: #d4e4df; }
+.workspace-business { background: #faf7f2; min-height: 100vh; color: #493423; }
+.business-header { border-bottom: 1px solid #e9dfd2; }
+.business-grid { display: grid; grid-template-columns: 270px minmax(0, 1fr); max-width: 1440px; margin: auto; }
+.business-profile { padding: 32px 24px; }
+.business-profile h2 { font-size: 19px; margin: 14px 0 8px; overflow-wrap: anywhere; }
+.business-profile nav { display: grid; gap: 8px; margin-top: 28px; }
+.business-avatar { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 20px; background: #edd6b8; font-size: 28px; font-weight: 800; }
+.business-welcome { background: #f3e6d3; border-radius: 24px; padding: 28px; }
+.workspace-business .gm-nav-item.is-active { background: #f0e2ce; color: #704213; }
+.workspace-business .gm-btn--primary { background: #835121; }
+.workspace-business .portal-card { border-color: #e9dfd2; border-radius: 20px; }
+.gomate-portal button:focus-visible, .gomate-portal a:focus-visible { outline: 3px solid #6d8ee0; outline-offset: 3px; }
+@media(max-width: 700px) {
+  .workspace-admin .portal-sidebar { width: auto; }
+  .workspace-account { margin-top: 16px; }
+  .workspace-header { padding: 16px; }
+  .business-grid { grid-template-columns: minmax(0, 1fr); }
+  .business-profile { padding: 20px; }
+  .business-profile nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .staff-header, .business-header { flex-wrap: wrap; }
+  .staff-tabs .gm-nav-item { font-size: 13px; padding: 10px; }
+  .workspace-brand { font-size: 20px; }
+}
 .portal-main button:disabled, .portal-auth button:disabled { opacity: .5; cursor: wait; }
+.workspace-admin { --admin-ink: #172e45; background: #f5f7fa; font-family: system-ui, sans-serif; }
+.workspace-admin .portal-sidebar { background: #102b32; width: 274px; padding: 32px 18px; }
+.workspace-admin .workspace-brand { padding: 0 14px; color: #fff; }
+.workspace-admin .workspace-brand strong { color: #9ddac8; border-color: #ffffff30; }
+.workspace-admin .portal-sidebar > p { padding-left: 14px; color: #87a9ab; }
+.workspace-admin .gm-nav-item { color: #c1d1d3; font-size: 13px; padding: 14px 12px; gap: 12px; }
+.workspace-admin .gm-nav-item.is-active { background: #23504f; color: white; }
+.workspace-admin .gm-nav-item::before { display: none; }
+.workspace-admin .gm-nav-item:hover { background: #ffffff12; }
+.workspace-admin .admin-nav-icon { font-size: 20px; width: 24px; text-align: center; }
+.workspace-admin .workspace-header { padding: 22px 36px; color: #607482; }
+.workspace-admin .workspace-header > span:last-child { background: #e8f4ee; color: #256950; border-radius: 20px; padding: 7px 13px; font-size: 12px; }
+.workspace-admin .portal-main { max-width: 1500px; padding: 30px 36px 48px; }
+.workspace-admin .workspace-intro h1 { font-size: 29px; letter-spacing: -.8px; color: #172e45; }
+.workspace-admin .workspace-intro small { color: #82929e; font-size: 10px; }
+.workspace-admin .workspace-intro p { color: #687c89; font-size: 14px; }
+.workspace-admin .gm-btn { width: auto; min-height: 40px; border-radius: 8px; padding: 10px 16px; font-size: 12px; box-shadow: none; border: 1px solid #d8e2e6; background: white; color: #29495b; }
+.workspace-admin .gm-btn--primary { background: #226957; border-color: #226957; color: white; }
+.workspace-admin .workspace-account .gm-btn { background: #ffffff0d; color: white; border-color: #ffffff20; }
+.workspace-admin .portal-card { padding: 24px; border: 1px solid #e1e8ed; border-radius: 14px; box-shadow: 0 4px 18px #182f4503; }
+.workspace-admin .portal-card h3 { color: #203d50; font-size: 17px; }
+.workspace-admin .portal-card p { font-size: 13px; color: #627783; }
+.workspace-admin .portal-card fieldset { gap: 12px; }
+.workspace-admin .portal-card select { margin-left: 10px; min-width: 150px; }
+.workspace-admin .gm-status { display: inline-block; background: #edf4f3; color: #286356; border-radius: 6px; padding: 5px 10px; font-size: 12px; }
+.admin-welcome { border-radius: 18px; background: linear-gradient(110deg, #143e40, #246c5b); color: white; padding: 30px 34px; display: flex; align-items: center; justify-content: space-between; gap: 24px; overflow: hidden; }
+.admin-eyebrow { color: #b0d9cd; font-size: 10px; letter-spacing: 2px; font-weight: 700; }
+.admin-welcome h2 { font-size: 26px; margin: 12px 0; }
+.admin-welcome p { color: #d2e8e1; font-size: 14px; line-height: 1.7; }
+.admin-welcome-mark { font-size: 70px; font-weight: 800; transform: rotate(-12deg); border: 1px solid #ffffff28; border-radius: 24px; width: 108px; height: 108px; text-align: center; flex-shrink: 0; background: #ffffff09; }
+.admin-welcome-mark span { font-size: 32px; }
+.admin-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 28px 0 18px; flex-wrap: wrap; }
+.admin-section-heading h2 { font-size: 18px; color: #223e50; margin: 0 0 6px; }
+.admin-section-heading p { font-size: 12px; color: #6c7f8c; }
+.admin-section-heading .portal-actions { margin: 0; gap: 8px; }
+.admin-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.admin-stat { text-align: left; background: white; border: 1px solid #e1e8ed; border-radius: 14px; padding: 20px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 12px; color: #546b7a; font: inherit; font-size: 12px; }
+.admin-stat strong { color: #17394b; font-size: 32px; font-weight: 750; }
+.admin-stat > span:not(.admin-stat-icon) { min-height: 34px; line-height: 1.5; }
+.admin-stat-icon { width: 36px; height: 36px; display: grid; place-items: center; font-size: 23px; color: #337968; background: #eaf5ef; border-radius: 10px; }
+.admin-stat-1 .admin-stat-icon { background: #fff3df; color: #b78021; }
+.admin-stat-2 .admin-stat-icon { background: #eeedfb; color: #7765b0; }
+.admin-stat-3 .admin-stat-icon { background: #e7f2fc; color: #5183b0; }
+.admin-stat-4 .admin-stat-icon { background: #fceee9; color: #b66f57; }
+.admin-stat small { display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid #edf1f4; color: #658172; }
+.admin-count { font-size: 11px; color: #718797; background: #eaf0f4; border-radius: 8px; padding: 7px 10px; }
+.admin-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.admin-shortcuts > button { display: flex; align-items: center; gap: 16px; padding: 20px; text-align: left; background: white; border: 1px solid #e1e8ed; border-radius: 12px; cursor: pointer; color: #506a7b; font: inherit; }
+.admin-shortcut-icon { font-size: 24px; color: #3c7c68; background: #eff6f3; border-radius: 10px; padding: 10px; }
+.admin-shortcuts h3 { font-size: 14px; color: #254354; margin-bottom: 7px; }
+.admin-shortcuts p { font-size: 12px; line-height: 1.6; color: #718591; }
+.admin-shortcuts > button > span:last-child { margin-left: auto; }
+.admin-shortcuts > button:hover, .admin-stat:hover { border-color: #6caa94; box-shadow: 0 4px 15px #2354460b; }
+@media(max-width: 1100px) { .admin-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } .workspace-admin .portal-main { padding: 24px; } }
+@media(max-width: 700px) { .workspace-admin .portal-sidebar { width: auto; padding: 20px 14px; } .workspace-admin .portal-main { padding: 20px 16px; } .workspace-admin .workspace-header { padding: 16px; } .admin-stats, .admin-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin-shortcuts { grid-template-columns: minmax(0, 1fr); } .admin-welcome { padding: 24px; } .admin-welcome-mark { display: none; } .workspace-admin .portal-sidebar nav { gap: 4px; } .workspace-admin .gm-nav-item { font-size: 12px; padding: 10px 8px; } }
 @media(max-width: 700px) { .portal-layout { display: block; } .portal-sidebar { width: auto; } .portal-sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); } .portal-main { padding: 16px; } }

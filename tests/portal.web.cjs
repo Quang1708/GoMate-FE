@@ -30,17 +30,27 @@ const be = name => import(pathToFileURL(root + '/src/' + name + '.js').href);
       await page.goto(base + '/portal'); await page.getByLabel('Email', { exact: true }).fill(role + '@example.com'); await page.getByLabel('Mật khẩu', { exact: true }).fill('PortalTest123!'); await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
       try { await page.getByRole('button', { name: 'Đăng xuất', exact: true }).waitFor(); }
       catch (error) { console.log('Portal visible text:', await page.locator('body').innerText()); console.log('Page errors:', errors); throw error; }
+      await page.waitForURL(base + (role === 'user' ? '/business' : '/' + role));
+      await page.locator(role === 'admin' ? '.workspace-admin' : role === 'staff' ? '.workspace-staff' : '.workspace-business').waitFor();
+      if (role !== 'user') {
+        await page.goto(base + '/');
+        await page.waitForURL(base + '/' + role);
+        await page.locator('.workspace-' + role).waitFor();
+        await page.goto(base + (role === 'admin' ? '/staff' : '/admin'));
+        await page.waitForURL(base + '/' + role);
+        await page.locator('.workspace-' + role).waitFor();
+      }
       return page;
     };
     const member = await signIn('user');
     await member.getByLabel('Tên doanh nghiệp').fill('Browser Business'); await member.getByLabel('Danh mục', { exact: true }).fill('Events');
     await member.getByLabel(/Giấy tờ xác minh/).setInputFiles({ name: 'proof.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nTest business proof') });
     await member.getByRole('button', { name: 'Gửi hồ sơ xét duyệt' }).click(); await member.getByText('Hồ sơ đang chờ quản trị viên xem xét.').waitFor();
-    const admin = await signIn('admin'); await admin.getByRole('button', { name: 'Duyệt doanh nghiệp', exact: true }).click();
+    const admin = await signIn('admin'); await admin.locator('nav').getByRole('button', { name: 'Duyệt doanh nghiệp', exact: true }).click();
     const application = admin.locator('article').filter({ hasText: 'Browser Business' }); await application.getByRole('button', { name: 'Đã duyệt', exact: true }).click();
     await application.locator('.gm-status').filter({ hasText: 'Đã duyệt' }).waitFor();
     await member.getByRole('button', { name: 'Kiểm tra trạng thái' }).click(); await member.getByRole('button', { name: 'Bài đăng', exact: true }).waitFor();
-    await admin.getByRole('button', { name: 'Người dùng & gói', exact: true }).click(); const user = admin.locator('article').filter({ hasText: 'user@example.com' });
+    await admin.locator('nav button').nth(6).click(); const user = admin.locator('article').filter({ hasText: 'user@example.com' });
     await user.getByLabel('Gói', { exact: true }).selectOption('plus'); await user.getByRole('button', { name: 'Lưu gói' }).click(); await user.getByText('Đã lưu', { exact: true }).waitFor();
     await member.reload(); await member.getByRole('button', { name: 'Bài đăng', exact: true }).click();
     await member.getByLabel('Tiêu đề', { exact: true }).fill('Persisted browser post'); await member.getByLabel('Nội dung', { exact: true }).fill('An approved business announcement.'); await member.getByLabel('Trang trí Plus').check(); await member.getByLabel('Nhãn', { exact: true }).fill('New'); await member.getByRole('button', { name: 'Gửi duyệt', exact: true }).click();
@@ -59,8 +69,22 @@ const be = name => import(pathToFileURL(root + '/src/' + name + '.js').href);
     assert.ok(await member.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Mobile portal must not overflow horizontally');
     await member.locator('.portal-main').getByRole('button', { name: 'Gửi trả lời' }).scrollIntoViewIfNeeded();
     assert.ok(await member.locator('.gomate-portal').evaluate(element => element.scrollTop > 0), 'Mobile portal must scroll inside the Expo root');
-    await admin.getByRole('button', { name: 'Tổng quan', exact: true }).click(); await admin.getByRole('button', { name: 'Xuất báo cáo tổng quan' }).waitFor();
+    await admin.locator('nav').getByRole('button', { name: 'Tổng quan', exact: true }).click(); await admin.getByRole('button', { name: 'Xuất báo cáo tổng quan' }).waitFor();
     const download = admin.waitForEvent('download'); await admin.getByRole('button', { name: 'Xuất báo cáo tổng quan' }).click(); assert.equal((await download).suggestedFilename(), 'gomate-report.json');
+    for (const [role, page] of [['admin', admin], ['staff', staff]]) {
+      await page.screenshot({ path: resolve(__dirname, '../test-results/portal-' + role + '.png'), fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), role + ' must fit mobile');
+    }
+    await admin.setViewportSize({ width: 1440, height: 1000 });
+    await admin.locator('nav button').nth(1).click();
+    const staffRow = admin.locator('article').filter({ hasText: 'staff@example.com' });
+    await staffRow.getByLabel('Vai trò', { exact: true }).selectOption('admin');
+    await staffRow.getByRole('button', { name: 'Lưu vai trò', exact: true }).click();
+    await staffRow.getByRole('status').waitFor();
+    assert.equal((await db.collection('users').findOne({ email: 'staff@example.com' })).role, 'admin');
+    await staff.reload();
+    await staff.getByLabel('Email', { exact: true }).waitFor();
     assert.deepEqual(errors, []); console.log('Portal browser flow passed: login, application, approval, Plus, posting, moderation, feed, tickets, persistence, export and mobile layout.');
   } finally { await browser?.close(); if (server) await new Promise(resolve => server.close(resolve)); await client.close(); await mongo.stop(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,7 +1,7 @@
 import PortalEntry from './src/PortalEntry';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { getSession, initializeSession } from './src/services/api';
+import { api, getSession, initializeSession } from './src/services/api';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -19,7 +19,7 @@ function pendingEmail() { try { return sessionStorage.getItem('gomate.verificati
 type Screen = 'onboarding' | 'auth' | 'verify' | 'profile' | 'permissions' | 'main';
 
 export default function App() {
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname.startsWith('/portal')) return <PortalEntry />;
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && /^\/(portal|admin|staff|business)(\/|$)/.test(window.location.pathname)) return <PortalEntry />;
   return <UserApp />;
 }
 
@@ -71,12 +71,30 @@ function UserApp() {
           />
         )}
         {screen === 'permissions' && <OnboardingPermissionsScreen onDone={() => setScreen('main')} />}
-        {screen === 'main' && <MainApp onLogout={() => setScreen('auth')} />}
+        {screen === 'main' && <RoleGate onLogout={() => setScreen('auth')} />}
         </>}
         </View>
       </LanguageProvider>
     </SafeAreaProvider>
   );
+}
+
+function RoleGate({ onLogout }: { onLogout: () => void }) {
+  const [ready, setReady] = useState(false), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    api<{ role: string }>('/portal/me').then(user => {
+      if (!alive) return;
+      if (Platform.OS === 'web' && ['admin', 'staff', 'business'].includes(user.role)) {
+        window.location.replace('/' + user.role);
+      } else if (['admin', 'staff', 'business'].includes(user.role)) {
+        setError('Vui lòng mở trang /' + user.role + ' trên website GoMate để sử dụng không gian làm việc.');
+      } else setReady(true);
+    }).catch(reason => { if (alive) setError(reason.message); });
+    return () => { alive = false; };
+  }, [retry]);
+  if (ready) return <MainApp onLogout={onLogout} />;
+  return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 }}>{error ? <><Text>{error}</Text><Pressable onPress={() => { setError(''); setRetry(v => v + 1); }}><Text>Thử lại</Text></Pressable><Pressable onPress={onLogout}><Text>Về đăng nhập</Text></Pressable></> : <ActivityIndicator accessibilityLabel="Đang kiểm tra quyền truy cập" />}</View>;
 }
 
 const styles = StyleSheet.create({ app: { flex: 1, width: '100%', alignSelf: 'center', maxWidth: 1440, backgroundColor: '#F8F9FC' } });
