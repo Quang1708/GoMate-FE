@@ -1,3 +1,4 @@
+import PortalEntry from './src/PortalEntry';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { getSession, initializeSession } from './src/services/api';
@@ -18,6 +19,11 @@ function pendingEmail() { try { return sessionStorage.getItem('gomate.verificati
 type Screen = 'onboarding' | 'auth' | 'verify' | 'profile' | 'permissions' | 'main';
 
 export default function App() {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname.startsWith('/portal')) return <PortalEntry />;
+  return <UserApp />;
+}
+
+function UserApp() {
   const [booting, setBooting] = useState(Platform.OS !== 'web');
   const [bootError, setBootError] = useState('');
   const [retry, setRetry] = useState(0);

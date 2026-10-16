@@ -18,7 +18,8 @@
     "test:maps:live": "node tests/mapbox-live.web.cjs",
     "dev": "expo start",
     "build": "expo export --platform web --output-dir dist",
-    "build:mobile": "expo export --platform android --platform ios --output-dir dist-native"
+    "build:mobile": "expo export --platform android --platform ios --output-dir dist-native",
+    "test:portal:web": "node tests/portal.web.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

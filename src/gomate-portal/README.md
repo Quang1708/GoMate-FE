@@ -1,29 +1,9 @@
-# GoMate Portal Module
+# GoMate Portal
 
-This folder is a standalone React module for the GoMate web portal. It does not modify the existing app entry point, router, or styles.
+The connected portal runs at /portal in the Expo web export and uses /api/portal plus the shared authentication API. There are no demo logins.
 
-## Use
+See [backend setup, roles and API contracts](../../../GoMate-BE/docs/PORTAL_API.md). Register and verify an account, submit a business application, then have an operator grant an admin role to a verified account using the documented CLI. Staff/Admin permissions are checked on every backend request.
 
-Render the default export from an existing screen or app entry when you are ready to connect it:
+Billing manages Free/Plus entitlement and active/paused/cancelled status; it does not charge money. Business posts are announcements in the portal feed, separate from personal activities.
 
-```jsx
-import GoMatePortal from './gomate-portal';
-
-export default function PortalScreen() {
-  return <GoMatePortal />;
-}
-```
-
-The module uses a small history-based router so it works with the current dependency set:
-
-- `/login` - unified role login
-- `/register` - business verification registration
-- `/business` - business dashboard and post studio
-- `/staff` - moderation, reports, and support tickets
-- `/admin` - global metrics, business review, and users/subscriptions
-
-Demo accounts are prefilled by the role selector:
-
-- Business: `business@gomate.app` / `business123`
-- Staff: `staff@gomate.app` / `staff123`
-- Admin: `admin@gomate.app` / `admin123`
+Validation: npm run typecheck, npm run lint, npx expo-doctor, npm run test:portal:web (requires an exported web build with EXPO_PUBLIC_API_BASE_URL=/api and a MongoDB test binary). The test uses isolated accounts and does not alter the configured application database.

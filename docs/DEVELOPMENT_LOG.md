@@ -1,5 +1,33 @@
 # Development log
 
+## 2026-10-16 - Connect Business, Staff and Admin portal to the backend
+
+### Summary
+
+- Replace demo credentials and local-only dashboard mutations with shared authentication and persisted portal APIs. Add the platform-specific /portal entry, verified business applications, private document submission, moderation, support threads, real metrics and JSON export.
+- Manage Free/Plus entitlements and status without payment collection. Reuse the existing configured Google login. Remove nonfunctional Apple/demo controls from the portal; the main app is unchanged.
+- Add loading/error/retry handling, prevent duplicate submissions, handle expired sessions, and make the portal scroll correctly inside the Expo web root.
+- Enable JSX lint checks and add a browser regression covering three roles against an isolated MongoDB backend.
+
+### Files changed
+
+- App.tsx, src/PortalEntry*, src/gomate-portal/*, gomate-portal-preview.html.
+- package.json, eslint.config.js, tests/portal.web.cjs, docs/DECISIONS.md.
+
+### Verification
+
+- Frontend unit tests: 13 passed.
+- Expo Doctor: 21/21 passed.
+- Web export with EXPO_PUBLIC_API_BASE_URL=/api: passed. Clear Metro cache when changing the baked API URL.
+- npm run typecheck and npm run lint: passed with no warnings (including portal JSX).
+- node tests/portal.web.cjs: passed against isolated MongoDB; login, document submission, business approval, Plus assignment, post submission/moderation/feed, support replies, reload persistence, metrics download and desktop/mobile width/scroll checks.
+- Reviewed desktop/mobile screenshots in test-results; git diff --check passed.
+
+### Remaining work
+
+- Configure real email/Google providers as needed and provision the first verified admin using the documented operator CLI. No real accounts or database permissions were changed during tests.
+- Business announcements appear in the portal feed, separate from mobile personal activities. Apple sign-in, native push and payment processing remain outside this portal task.
+
 ## 2026-10-16 - Resolve fe-ui2 merge conflicts
 
 ### Summary

@@ -1,5 +1,12 @@
 # Decision log
 
+### 2026-10-16 - Server-authorized portal and administrative entitlements
+
+- **Status:** Accepted.
+- **Decision:** Mount the portal at /portal with a platform-specific Expo web entry and use the shared bearer session. Resolve admin/staff roles and business approvals in BE on every request; no role selector grants access. Business announcements use a distinct moderated feed.
+- **Billing:** Per user direction, Free/Plus and active/paused/cancelled are administratively managed entitlements. No payment gateway or fabricated revenue is introduced.
+- **Consequences:** Staff/Admin provisioning requires an operator command against a verified account; changing roles revokes sessions. Unverified users use existing email verification before applying. Portal UI displays actual counts and persisted workflow state.
+
 ### 2026-10-16 - Shared session and compatibility during fe-ui2 merge
 
 - **Status:** Accepted.

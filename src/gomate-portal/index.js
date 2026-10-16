@@ -1,1 +1,1 @@
-export { default, GoMatePortal, LoginPage, RegistrationPage, BusinessDashboard, StaffDashboard, AdminDashboard, mockLogin } from './GoMatePortal';
+export { default, GoMatePortal, LoginPage } from './GoMatePortal';
