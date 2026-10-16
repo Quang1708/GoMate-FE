@@ -5,18 +5,21 @@ import { ReactNode } from 'react';
 import { colors, control, radii, typography } from '../theme';
 
 type GradientButtonProps = {
+  disabled?: boolean;
   label: string;
   onPress: () => void;
   style?: ViewStyle;
   trailing?: ReactNode;
 };
 
-export function GradientButton({ label, onPress, style, trailing }: GradientButtonProps) {
+export function GradientButton({ disabled = false, label, onPress, style, trailing }: GradientButtonProps) {
   return (
     <Pressable
+      disabled={disabled}
+      accessibilityState={{ disabled }}
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.shadow, style, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.shadow, style, disabled && { opacity: 0.5 }, pressed && styles.pressed]}
     >
       <View style={styles.gradient}>
         <Text style={styles.label}>{label}</Text>

@@ -3,9 +3,9 @@ import { Image, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../components/LocalizedText';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { ActivityRecord, deleteActivity, getActivity, myHostedActivities } from '../services/activityService';
+import { ActivityRecord, deleteActivity, getActivity, myHostedActivities } from '../services/legacyActivityService';
 import { getSession } from '../services/authService';
-import { CreateActivityScreen } from './CreateActivityScreen';
+import { LegacyCreateActivityScreen } from './LegacyCreateActivityScreen';
 import { colors } from '../theme';
 
 export function ActivityManagerScreen({ onBack }: { onBack: () => void }) {
@@ -66,7 +66,7 @@ export function ApiActivityDetailScreen({ id, onBack }: { id: string; onBack: ()
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Không xóa được hoạt động.'); }
     finally { deleting.current = false; setBusy(false); }
   };
-  if (editing && item) return <SafeAreaView style={{ flex: 1 }}><CreateActivityScreen editing={item} onCancel={() => setEditing(false)} onCreated={() => { setEditing(false); setItem(undefined); setRefresh(value => value + 1); }} /></SafeAreaView>;
+  if (editing && item) return <SafeAreaView style={{ flex: 1 }}><LegacyCreateActivityScreen editing={item} onCancel={() => setEditing(false)} onCreated={() => { setEditing(false); setItem(undefined); setRefresh(value => value + 1); }} /></SafeAreaView>;
   const owner = item?.hostId === getSession()?.user.id;
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
     <ScreenHeader title="Chi tiết hoạt động" onBack={() => { if (!busy) onBack(); }} />

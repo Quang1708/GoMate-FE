@@ -1,5 +1,11 @@
 # Decision log
 
+### 2026-10-16 - Shared session and compatibility during fe-ui2 merge
+
+- **Status:** Accepted.
+- **Decision:** Use the incoming integrated screen flow and src/services/api.ts session storage. Keep the original activity/profile contracts in legacy modules while preserving their callers and tests. authService.ts delegates authentication to the shared API.
+- **Consequences:** The application retains the newer activity, profile and verification flows without a second authentication store. Original forms remain available in source; they are not added as duplicate routes to MainApp.
+
 ### 2026-10-04 - Activity host CRUD with soft deletion
 
 - **Status:** Accepted.
@@ -65,6 +71,276 @@
 Record decisions here when they materially affect architecture, dependencies,
 security, the data model, or product behavior. Keep the newest decision at the
 top. Small implementation details belong only in `DEVELOPMENT_LOG.md`.
+
+### 2026-10-16 - Server-backed create drafts and an inline chat attachment panel
+
+- **Status:** Accepted.
+- **Decision:** Store one explicit unfinished create draft per authenticated account on BE, including editor step and original photo/Excel content. Use owner-scoped versioned metadata plus GridFS rather than browser storage, temporary file URLs or a single BSON document. Restore automatically, confirm discard and remove only the saved version after publication.
+- **Decision:** Drafts permit incomplete fields and stay outside published activities/Match; publication still uses full validation and existing media uploads. Conflicting sessions do not overwrite each other. Multiple drafts/edit drafts/background autosave are not included.
+- **Decision:** Keep a single composer mounted while replacing the keyboard with an inline icon panel. Default blank input to one row; preserve the same text/attachment state during keyboard/panel transitions.
+- **Decision:** Home participant photos come from actual approved-member profiles. Missing/error portraits and reserved companions use a neutral silhouette, never a fixed sample person.
+
+### 2026-10-16 - VIETMAP lookup with Mapbox rendering and routes
+
+- **Status:** Accepted at the user's request; supersedes the Mapbox-only lookup part of the decision below.
+- **Decision:** Prefer VIETMAP Autocomplete v4/Place v4 when `VIETMAP_API_KEY` exists. Keep Mapbox GL JS/Directions and existing points, filters, activity/chat persistence and bridge unchanged. Use new administrative format (`display_type=1`) for current wards/provinces.
+- **Decision:** Keep the Services key on BE only. Expose only search-provider identity/availability in public config; fixed upstream URLs, per-account/session selections, validation, rate/time limits and sanitized errors protect the lookup flow. No VIETMAP requests are made directly by FE or map WebView.
+- **Decision:** Attribute lookup results to VIETMAP and preserve Mapbox's own map/route attribution. Do not silently call Mapbox Geocoding after a configured VIETMAP provider fails. Mapbox permanent address geocoding remains available only on installations without a VIETMAP key.
+- **Validation:** Supplied key passed live Autocomplete/Place v4; the hybrid live test passed Mapbox tiles and both route modes. FE/BE/MongoDB tests cover inline suggestions, current ward auto-fill and persisted activity/chat points.
+
+### 2026-10-16 - Replace Google Maps with Mapbox
+
+- **Status:** Accepted; supersedes the Google Maps decision below at the user's request.
+- **Decision:** Use Mapbox GL JS 3.33.0/streets-v12 in the shared BE map document, plus authenticated Geocoding v6 and Directions v5. Preserve the existing iframe/WebView contracts, GPS, radius and manual selection. Keep OSM when no token is configured; remove Google Maps runtime configuration/documents and keep OAuth separate.
+- **Decision:** Use permanent geocoding for address results that can be saved to activities/chat. Do not persist temporary Search Box/POI data. Address search is intentionally labeled as address search, not a POI directory; broader POI persistence needs suitable Mapbox rights.
+- **Decision:** Store the user-provided public token only in ignored BE `.env`. Expose it to the map SDK through public config, never embed the actual value in source, tests, docs or FE builds. Limit authenticated API calls, sanitize failures and scope provider CSP to the map page.
+- **Decision:** Keep at most 500 account/session-bound address selections for five minutes; details consumes one selection without another provider request. This is a process-local cache; clients must search again if an instance changes. Geocoding billing remains per request, not per session.
+- **Validation:** Real token API calls and real SDK/tiles passed in desktop Chrome, including selection, radius, pin, routes and attribution; deterministic FE/BE/MongoDB tests cover activity/chat persistence. Mobile bundle export is not physical-device validation.
+
+### 2026-10-16 - Google Maps in the shared map document
+
+- **Status:** Superseded by Mapbox above.
+- **Decision:** Reuse the BE-hosted map page in web iframe and native WebView for Google Maps JavaScript. Keep the OSM document when no browser key is supplied; never silently draw Google Places/Routes data on OSM. Preserve Google attribution and the required walking-route beta notice.
+- **Decision:** Use separate restricted browser/server keys from BE configuration. The browser key is public by design; the server key stays in provider request headers on BE. Scope the Maps SDK CSP allowances to the map document and retain frame-origin restrictions.
+- **Decision:** Proxy only fixed, authenticated, validated Places (New) and Routes calls with rate/time limits and minimal field masks. Share a session token between debounced Autocomplete and Details. Support explicit GPS-based DRIVE/WALK calculations with polylines, rather than calling Routes for all Match results.
+- **Decision:** Confirm a selected place before updating activity/filter/chat drafts. Keep Match radius/straight-line distance semantics and manual coordinate selection. Do not persist autocomplete lists or route responses; review Google data retention and public Terms/Privacy before a wider release.
+- **Limit:** User-owned billing/key setup and live/physical-device verification are separate from stubbed-provider tests. No key, billing, deployment or OAuth setting is changed automatically. Setup is documented in `GOOGLE_MAPS_SETUP.md`.
+
+### 2026-10-15 - Private chat attachments and named companions
+
+- **Status:** Accepted.
+- **Decision:** Store bounded chat uploads as separate MongoDB Binary documents (10 MB/file, maximum 4/message). Authorize every upload/download/library read through current conversation access; bind sends to uploader and conversation. Expire unused uploads after 24 hours. Message retry IDs compare text, attachment metadata and location together. Same-owner attachments can be reused within the same conversation after editing a draft following an uncertain send outcome.
+- **Decision:** Keep companion name/note arrays aligned with reserved-seat capacity. Only group members can read them; only the host edits before start, using activity versions. Consuming reserved seats removes the corresponding initial companion entries atomically, without inventing authenticated identities. Names/notes are excluded from public activity responses.
+- **Decision:** Add SDK-compatible expo-video for on-demand playback. Camera permission is requested only when the user chooses to take a photo. GPS sharing sends an explicit snapshot, not background tracking. Existing Google provider and business website deferrals stand.
+- **Follow-up:** Move large-scale media to private object storage with thumbnails/transcoding and a durable cleanup policy before increasing limits. See `CHAT_AND_RELEASE_GAPS.md`.
+
+### 2026-10-15 - Persisted accounts and real community actions
+
+- **Status:** Accepted.
+- **Decision:** Store native sessions with Expo SecureStore, serialize storage writes and gate startup on restoration. Keep existing web storage behavior; BE remains the authority on session validity.
+- **Decision:** Account privacy/notification preferences are explicit validated BE settings and are enforced in write/access paths. Blocks deny bilateral private contact while preserving existing shared activity membership.
+- **Decision:** Ratings are immutable, idempotent per completed activity/author, with present/late attendance and actual target checks. Read host reputation from persisted member scores and completed activities.
+- **Decision:** Use actual in-app notification records and authenticated SSE chat updates. Notification failures do not roll back successful core operations; a durable outbox is separate production hardening.
+- **Decision:** Reports are private to the reporter; moderation requires a provisioned BE admin role. Do not expose prototype security/subscription/theme controls as working features or grant business/admin privileges from client input.
+
+### 2026-10-15 - Consumer publishing and the activity chat workspace
+
+- **Status:** Accepted.
+- **Decision:** Consumer apps publish only personal activities. Reject business creation/conversion on BE regardless of platform headers; business website authorization must use a separate trusted publishing flow.
+- **Decision:** Chat opens before activity start. Use a shared top-tab group workspace and a shared host-only management panel; put cost estimates under Plan instead of a separate expense tab.
+- **Decision:** Confirming a schedule is a versioned host action distinct from starting the activity. Store confirmation and audit fields; time/location edits clear confirmation. Members can see its actual persisted status.
+- **Decision:** Deadline shortcuts resolve relative to start time until publication, then persist as the existing absolute UTC deadline. Retain custom times and BE validation/enforcement.
+- **Reason:** Reduce form friction, separate conversation from attendance, and keep permissions and group state consistent between the UI and API.
+
+### 2026-10-15 - Infer the local API host in development
+
+- **Status:** Accepted.
+- **Decision:** An explicit EXPO_PUBLIC_API_BASE_URL always wins. Otherwise development native clients derive the API host from Constants.expoConfig.hostUri, web clients use their browser origin hostname, and both use port 3000. Exported web retains /api.
+- **Reason:** Hardcoded Wi-Fi addresses become unreachable when the developer changes networks. Native localhost also refers to the device itself.
+- **Limits:** Backend must listen on the LAN for physical devices. Expo tunnels do not tunnel the API; remote/custom-port APIs still need explicit configuration. Existing CORS allowlists remain enforced.
+
+### 2026-10-15 - Four-step activity creation, trip plans and social membership
+
+- **Status:** Accepted.
+- **Decision:** Use four steps: basics, schedule/location, group/cost/plan, Match
+  preview. Share scroll-wheel selectors across time, administrative places,
+  advanced group preferences and filters. Choose start/end on one range calendar.
+  Default a new activity's city to the current profile; preserve explicit edits.
+- **Decision:** Use the bundled Province Open API v2 province/ward snapshot for
+  current choices. Keep v1 district names as optional familiar landmarks, not a
+  current administrative hierarchy. Wards are selected at province level and
+  are not falsely constrained by obsolete district boundaries.
+- **Decision:** Persist at most 60 structured itinerary steps, an optional HTTPS
+  plan link, and one Excel attachment up to 3 MB. Sheets links are opened as links;
+  Excel is stored/downloaded as an attachment, not executed or imported into rows.
+  Only hosts edit the shared plan, with version checks, including while in progress.
+  Completed plans are read-only. Keep legacy text plans readable.
+- **Decision:** Keep costs as an estimated per-person amount and explanatory note
+  within group setup. Drop the free-form join-requirements input; retain structured
+  age/gender/language choices. Enforce volunteered profile age on joining and host
+  additions. Existing preference fields remain API-compatible.
+- **Decision:** Model offline companions as reserved seats counted in memberCount,
+  never as fake accounts or chat identities. A host can add accepted GoMate friends
+  directly at creation or before activity start. Converting a reserved seat to a
+  named member does not increase occupancy; all changes enforce capacity and version.
+- **Decision:** Add unique friend relationships with recipient-only acceptance,
+  lookup by public name/Nickname, cancellation/removal and direct chat entry points.
+  Activity chat uses live approved membership; added friends can chat before start,
+  and removed members lose access. Existing direct-chat semantics remain compatible.
+  Replace the app's sample conversation/group chat data with persistent API messages,
+  idempotent retries, older-message paging, read markers and three-second chat polling.
+
+### 2026-10-15 - Persistent Match preferences, geolocation and optional Google sign-in
+
+- **Status:** Accepted.
+- **Decision:** Add `organizerType=personal|business` to activities; treat existing
+  records without it as personal. This is the host's declared activity type,
+  not a business-verification badge. Retain estimated-cost filtering; do not
+  introduce deposit or funding-mode filters.
+- **Decision:** Rank recommendations before pagination using profile interests
+  matched against category, tags and description/title, plus bounded per-category
+  skip/interested/dislike/favorite signals. Keep explicit nearest/soonest sorts.
+  Store filters and up to 500 favorite IDs on the authenticated account.
+- **Decision:** Use Expo foreground location and the existing MongoDB 2dsphere
+  index for actual distance/radius queries. GPS coordinates stay in session state;
+  restore saved nearest/radius preferences only after a fresh GPS or map point.
+  Choosing a map point remains available when GPS is denied or times out.
+- **Decision:** Self-host Leaflet assets and a small map document on BE, with OSM
+  tiles and visible attribution. Embed it through an iframe on web and WebView
+  on native. Permit map embedding only from self/configured frontend origins;
+  check message source, origin and coordinate bounds on web.
+- **Decision:** Use Google's rendered GIS button on web and native Google Sign-In
+  in a development/production build. Exchange the provider ID token for the
+  existing BE session; do not link accounts based only on matching email.
+  Provider setup stays disabled until IDs/native configuration are supplied.
+- **Decision:** Store a separate profile cover with version-guarded replacement,
+  10 MB input validation, image re-encoding and cleanup of replaced cloud assets.
+  Preserve the six-photo profile album with upload/reorder/delete and add viewing.
+
+### 2026-10-15 - Companion profile structure and repeatable single-post undo
+
+- **Status:** Accepted.
+- **Decision:** Interpret the supplied dating-profile screens as structure references
+  for an activity companion profile. Keep photos, intro, interests, work/education;
+  add GoMate goals, availability and activity prompts. Dedicated lifestyle, music,
+  relationship, children and height sections are omitted from the editor. Existing
+  private preference values remain compatible with activity matching.
+- **Decision:** Save basic information before the companion-profile step. Require
+  name, birth date, gender, region and language at the first step; bio/interests at
+  the second. Extra profile detail and photos are optional. Existing complete
+  profiles are not forced to provide the new optional fields.
+- **Decision:** Use shared React Native scroll wheels on web/native rather than a
+  new picker dependency. Render birthday `DD-MM-YYYY` with incremental separators,
+  but preserve ISO `YYYY-MM-DD` in storage/API. Vietnamese is the default language;
+  retain at least one selected language. Province-level selection replaces free
+  text on profile forms; distance remains a matching concern.
+- **Decision:** Keep the existing `username` API/storage semantics under the new
+  optional Nickname label, including uniqueness and normalization.
+- **Decision:** Add ordered profile photos independent of the avatar (six, 10 MiB
+  each). Upload one image per request, return opaque photo IDs/public URLs, and
+  version-guard reorder/delete operations. Update shared profile state without
+  resetting the editor. Public responses include only complete-years age and
+  volunteered profile detail; exact birth date and private demographic preferences
+  stay omitted.
+- **Decision:** Profile verification represents email verification. The reviews
+  screen reads actual `activity_ratings` and renders an empty state when none exist;
+  it does not fabricate scores or claim identity verification. Rating submission
+  integration is outside this profile/menu change.
+- **Decision:** Match keeps one pending skipped-post slot. Consume it immediately
+  on undo; the next skip replaces it, and accepting a post clears it. No session
+  quota or confirmation dialog is shown.
+
+### 2026-10-15 - P0 browser navigation, required basic profiles and activity galleries
+
+- **Status:** Accepted.
+- **Decision:** Use hash URLs through the existing screen flow rather than adding
+  a router dependency. Browser history/sessionStorage snapshots are scoped to the
+  signed-in user; activity routes hydrate current server data on history restore.
+  Tabs, known screens and activity links work after reload and browser Back/Forward.
+- **Decision:** Persist web Bearer sessions in localStorage and request the existing
+  BE remembered-session lifetime. The server still enforces expiry/revocation;
+  logout and 401 remove local credentials. Native sessions remain memory-only.
+  Pending email drafts use sessionStorage; passwords and OTPs are not persisted.
+- **Decision:** Basic profile completion includes birth date and a saved gender
+  choice (`undisclosed` allowed), in addition to existing basic fields. Incomplete
+  profiles must complete the form before accessing the main UI, including existing
+  incomplete accounts. Religion/alcohol remain optional; public profiles still
+  omit private demographic fields.
+- **Decision:** Creation only records optional estimated cost. It sends no deposit,
+  prepayment or payment deadline; legacy BE financial contracts remain compatible.
+- **Decision:** Store ordered `imageUrls` and private storage IDs for up to six
+  activity images, each at most 10 MiB decoded. Keep legacy cover support. Replace
+  galleries atomically with the activity write, clean failed/replaced uploads,
+  and bound JSON requests to 81 MiB for base64 overhead. Reverse proxies must
+  allow the documented request size; no raw base64 is stored in MongoDB.
+- **Decision:** Group progress uses existing host-authorized lifecycle and attendance
+  endpoints. Completion requires confirmation and leaves attendance immutable.
+  Summary counts derive from persisted data instead of prototype numbers.
+
+### 2026-10-13 - Remote demo media and persisted member rosters
+
+- **Status:** Accepted.
+- **Decision:** Demo activities use curated external Unsplash images; profiles use
+  Random User portraits and Unsplash covers. FE activity adapters no longer fall
+  back to local images. CSP permits only these providers alongside existing Cloudinary.
+- **Decision:** Add ten complete fictional member accounts (14 demo accounts total)
+  and actual approved/pending join requests. Group counts derive from approved
+  membership. Enrichment only targets marked demo records; roster version guards
+  prevent resurrecting cancelled/left/removed membership on reruns.
+- **Decision:** Show member avatars and a real public-profile modal. Public responses
+  omit email, date of birth, gender, religion and alcohol settings.
+- **Consequences:** Images require provider/network availability. Accounts remain
+  explicitly fictional. Existing demo account completion reminders no longer show
+  because all demo profiles are now complete; ordinary incomplete accounts still get reminders.
+- **Supersedes:** Local activity-image fallback and the empty demo participant profile.
+
+### 2026-10-13 - Automatic verification login, precise scheduling and real profiles
+
+- **Status:** Accepted.
+- **Decision:** Passwords require 6–128 characters without composition rules.
+  Successful single-use email verification issues a regular Bearer session;
+  FE enters the app immediately without retaining/reusing the password.
+- **Decision:** Shared calendar/time controls feed Vietnam dates and minute-level
+  times to BE. Activities store min/max member counts and optional participant
+  requirements. Match filters dates, times, sizes and requirements server-side.
+- **Decision:** Profile completion requires name, location, bio, interests and
+  languages. Avatar, gender, religion, alcohol and birth date are optional;
+  advanced fields remain collapsed. App reminders can be deferred. Host-selected
+  restrictions use volunteered profile fields and are enforced when requesting to join.
+- **Decision:** Seed 20 fictional TP.HCM activities with four marked demo accounts,
+  deterministic IDs and insert-only writes. Dates start tomorrow at first seed;
+  reruns preserve existing data rather than rescheduling it.
+- **Consequences:** Existing long passwords remain valid. Sessions still live in
+  memory in FE; refresh needs login. Finance setup is persisted, but payment
+  transactions are not part of creation. Missing optional profile data does not
+  satisfy an explicitly restricted group. Demo listings are clearly labeled.
+- **Supersedes:** Manual login after email verification and mock profile UI.
+
+### 2026-10-13 - Use backend identity and persisted activity membership
+
+- **Status:** Accepted.
+- **Context:** The Expo application used Vite environment variables, mock login,
+  local join decisions and hardcoded group members despite available BE endpoints.
+- **Decision:** Use `EXPO_PUBLIC_API_BASE_URL` and Bearer sessions; keep tokens in
+  memory and return to login on 401. Read hosted, joined and pending activities
+  from their separate endpoints. All membership mutations await server success.
+- **Consequences:** Reload requires login. Lists exhaust pagination and offer
+  refresh/error states. Create persists to BE, converts Vietnam input dates to
+  UTC, and supports one cover image rather than six local-only photos. BE stores
+  and validates optional funding configuration and registration deadlines;
+  treasury is the host. Funding transactions and the remaining prototype screens
+  are outside this integration. Actual form/API validation now prevents invalid
+  publication; mock navigation between form steps remains available.
+- **Supersedes:** Local publication in the funding decision and unrestricted mock
+  publication in the 2026-09-29 Create Activity navigation decision.
+
+### 2026-09-29 - Configure activity funding during creation
+
+- **Status:** Accepted
+- **Context:** Hosts need to define how members contribute before publishing,
+  while the backend and the later Fund transaction experience are not ready.
+- **Decision:** Store one financial config in the create draft with exactly two
+  modes: full prepayment or deposit. Both modes include a deadline, host-managed
+  treasury, approval threshold, and a member approval rule. Persist published
+  drafts through the local activity adapter until the creation API supports the
+  same model.
+- **Consequences:** Create Activity now has five steps. Form and financial
+  validation are intentionally deferred while the flow is used as a UI mockup
+  and must return before backend integration. Payment, contribution,
+  disbursement, settlement, and other Fund operations remain out of scope.
+- **Supersedes:** None.
+
+### 2026-09-29 - Keep successful Match requests in discovery
+
+- **Status:** Accepted
+- **Context:** Routing to a dedicated success screen interrupts rapid activity
+  discovery after every interested swipe.
+- **Decision:** Submit the join request, advance the deck, and show a temporary
+  bottom confirmation explaining that host approval is pending. Do not navigate
+  away from Match for this action.
+- **Consequences:** The dedicated Match success route and screen are removed.
+  Request persistence still depends on a future backend integration.
+- **Supersedes:** The dedicated post-match success-screen behavior.
 
 ### 2026-09-29 - Keep Match discovery separate from its management hub
 

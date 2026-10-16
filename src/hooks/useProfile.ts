@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getProfile, Profile } from '../services/profileService';
+import { getProfile, Profile } from '../services/legacyProfileService';
 
 export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);

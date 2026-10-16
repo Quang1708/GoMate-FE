@@ -11,7 +11,7 @@ test('profile service authenticates requests, resolves avatar URLs and preserves
   let payload = { profile: { id: '1', name: 'After', avatarUrl: '/api/profile/1/avatar?v=123', interests: [] } };
   const calls = [];
   const exports = {};
-  const source = fs.readFileSync(require('node:path').join(__dirname, '../src/services/profileService.ts'), 'utf8');
+  const source = fs.readFileSync(require('node:path').join(__dirname, '../src/services/legacyProfileService.ts'), 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   vm.runInNewContext(compiled, {
     exports, require: () => ({ ApiError, getSession: () => session }),

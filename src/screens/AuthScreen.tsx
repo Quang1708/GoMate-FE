@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,45 +7,50 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrandLogo } from '../components/BrandLogo';
 import { FormField } from '../components/FormField';
 import { Text } from '../components/LocalizedText';
-import { colors, control, layout, typography } from '../theme';
-
-import { ApiError, Credentials, login, register } from '../services/authService';
+import { useWebNavigation } from '../services/webNavigation';
+import { login, post } from '../services/api';
+import { colors, control, typography } from '../theme';
 
 type AuthStage = 'welcome' | 'login' | 'signup' | 'forgot' | 'reset' | 'success';
 
+const encodeAuth = (stage: AuthStage) => `/auth/${stage}`;
+const decodeAuth = (path: string): AuthStage => { const stage = path.split('/')[2]; return ['welcome', 'login', 'signup', 'forgot', 'reset', 'success'].includes(stage) ? stage as AuthStage : 'welcome'; };
+
 type AuthScreenProps = {
   onLogin: () => void;
-  onRegister: (credentials: Credentials) => void;
+  onRegister: (email: string) => void;
 };
 
 export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
-  const [stage, setStage] = useState<AuthStage>('welcome');
+  const [stage, setStage] = useWebNavigation<AuthStage>('welcome', encodeAuth, decodeAuth, 'guest');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmailValue] = useState(() => { try { return sessionStorage.getItem('gomate.authEmail') || ''; } catch { return ''; } });
+  const setEmail = (value: string) => { setEmailValue(value); try { sessionStorage.setItem('gomate.authEmail', value); } catch { /* Optional draft. */ } };
   const [loginPassword, setLoginPassword] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('GoMate2026!');
-  const [confirmPassword, setConfirmPassword] = useState('GoMate2026!');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
   const submitting = useRef(false);
-  const unavailable = () => setError('Tính năng này chưa được kết nối. Vui lòng dùng email và mật khẩu.');
-  const submit = async (signup: boolean) => {
+  const [error, setError] = useState('');
+  const [resendSeconds, setResendSeconds] = useState(0);
+  useEffect(() => {
+    if (!resendSeconds) return;
+    const timer = setTimeout(() => setResendSeconds(seconds => Math.max(0, seconds - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendSeconds]);
+  const [resetCode, setResetCode] = useState('');
+  const run = async (action: () => Promise<void>) => {
     if (submitting.current) return;
-    const credentials = { email: email.trim().toLowerCase(), password: signup ? signupPassword : loginPassword };
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(credentials.email) || credentials.password.length < 12 || credentials.password.length > 128 || (signup && (name.trim().length < 2 || name.trim().length > 100))) {
-      setError('Nhập email hợp lệ, mật khẩu 12–128 ký tự và tên 2–100 ký tự khi đăng ký.'); return;
-    }
-    submitting.current = true; setBusy(true); setError('');
-    try {
-      if (signup) { await register({ ...credentials, name: name.trim() }); onRegister(credentials); }
-      else { await login(credentials); onLogin(); }
-    } catch (error) {
-      if (!signup && error instanceof ApiError && error.status === 403) onRegister(credentials);
-      else setError(error instanceof Error ? error.message : 'Đã xảy ra lỗi. Vui lòng thử lại.');
-    } finally { submitting.current = false; setBusy(false); }
+    submitting.current = true;
+    setBusy(true); setError('');
+    try { await action(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Yêu cầu thất bại'); }
+    finally { submitting.current = false; setBusy(false); }
   };
+  const handleLogin = () => void run(async () => { await login(email, loginPassword); onLogin(); });
+  const handleRegister = () => void run(async () => { await post('/auth/register', { name, email: email.trim(), password: signupPassword }); onRegister(email.trim()); });
+  const unavailable = () => setError('Đăng nhập mạng xã hội chưa được cấu hình. Vui lòng dùng email.');
 
   if (stage === 'welcome') {
     return (
@@ -55,10 +61,9 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
             <Text style={styles.welcomeTitle}>Join GoMate</Text>
             <Text style={styles.welcomeSubtitle}>Create your account and find activities worth showing up for.</Text>
           </View>
-          <View style={styles.welcomeActions}>
-            {!!error && <Text accessibilityRole="alert">{error}</Text>}
+          <View style={styles.welcomeActions}>{error ? <Text style={{ color: colors.match }}>{error}</Text> : null}
             <MethodButton icon="mail-outline" label="Continue with email" onPress={() => setStage('signup')} primary />
-            <MethodButton icon="logo-google" label="Continue with Google" onPress={unavailable} />
+            <GoogleLoginButton onLogin={onLogin} />
             <MethodButton icon="logo-apple" label="Continue with Apple" onPress={unavailable} />
             <InlinePrompt action="Log in" label="Already have an account?" onPress={() => setStage('login')} />
           </View>
@@ -92,9 +97,8 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <AuthHeader onBack={() => { if (!busy) { setError(''); goBack(); } }} />
-        {!!error && <Text accessibilityRole="alert" style={{ padding: 20 }}>{error}</Text>}
-        <ScrollView pointerEvents={busy ? "none" : "auto"} bounces={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <AuthHeader onBack={goBack} />{error ? <Text style={{ color: colors.match, padding: 16 }}>{error}</Text> : null}
+        <ScrollView bounces={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {stage === 'login' && (
             <View style={styles.screenPage}>
               <View>
@@ -103,11 +107,11 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
                   <FormField keyboardType="email-address" label="Email" onChangeText={setEmail} value={email} />
                   <FormField label="Password" onChangeText={setLoginPassword} secureTextEntry value={loginPassword} />
                 </View>
-                <Pressable onPress={unavailable} style={styles.forgotLink}><Text style={styles.linkText}>Forgot password?</Text></Pressable>
-                <PrimaryButton label={busy ? "Đang đăng nhập…" : "Log in"} disabled={busy} onPress={() => void submit(false)} />
+                <Pressable onPress={() => setStage('forgot')} style={styles.forgotLink}><Text style={styles.linkText}>Forgot password?</Text></Pressable>
+                <PrimaryButton disabled={busy} label={busy ? "Đang đăng nhập..." : "Log in"} onPress={handleLogin} />
                 <Text style={styles.orText}>or</Text>
                 <View style={styles.socialButtons}>
-                  <MethodButton icon="logo-google" label="Continue with Google" onPress={unavailable} />
+                  <GoogleLoginButton onLogin={onLogin} />
                   <MethodButton icon="logo-apple" label="Continue with Apple" onPress={unavailable} />
                 </View>
               </View>
@@ -122,21 +126,22 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
                 <FormField label="Full name" onChangeText={setName} value={name} />
                 <FormField keyboardType="email-address" label="Email" onChangeText={setEmail} value={email} />
                 <FormField label="Password" onChangeText={setSignupPassword} placeholder="Create a password" secureTextEntry value={signupPassword} />
+                <Text style={styles.requirementText}>Từ 6 ký tự; không bắt buộc chữ hoa, số hoặc ký tự đặc biệt.</Text>
               </View>
               <Pressable style={styles.consent}>
                 <View style={styles.checkbox}><Ionicons color={colors.white} name="checkmark" size={14} /></View>
                 <Text style={styles.consentText}>I agree to the Terms of Service and Privacy Policy.</Text>
               </Pressable>
-              <PrimaryButton label={busy ? "Đang đăng ký…" : "Create account"} disabled={busy} onPress={() => void submit(true)} />
+              <PrimaryButton disabled={busy} label={busy ? "Đang tạo tài khoản..." : "Create account"} onPress={handleRegister} />
               <View style={styles.signupPrompt}><InlinePrompt action="Log in" label="Already have an account?" onPress={() => setStage('login')} /></View>
             </View>
           )}
 
           {stage === 'forgot' && (
             <View style={styles.formPage}>
-              <AuthHeading subtitle="Enter the email linked to your account and we will send you a reset link." title="Forgot password?" />
+              <AuthHeading subtitle="Nhập email tài khoản để nhận mã OTP gồm 6 chữ số." title="Forgot password?" />
               <View style={styles.forgotField}><FormField keyboardType="email-address" label="Email" onChangeText={setEmail} value={email} /></View>
-              <PrimaryButton label="Send reset link" onPress={() => setStage('reset')} />
+              <PrimaryButton disabled={busy} label={busy ? 'Đang gửi...' : 'Gửi mã OTP'} onPress={() => void run(async () => { await post('/auth/forgot-password', { email: email.trim() }); setResetCode(''); setResendSeconds(60); setStage('reset'); })} />
               <Pressable onPress={() => setStage('login')} style={styles.backToLogin}><Text style={styles.mutedAction}>Back to log in</Text></Pressable>
             </View>
           )}
@@ -144,18 +149,20 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
           {stage === 'reset' && (
             <View style={styles.screenPage}>
               <View>
-                <AuthHeading subtitle="Your new password must be different from previous ones." title="Create new password" />
+                <AuthHeading subtitle="Nhập mã OTP đã gửi đến email và mật khẩu mới từ 6 ký tự." title="Create new password" />
                 <View style={styles.fields}>
+                  <FormField label="Mã xác nhận 6 số" keyboardType="number-pad" value={resetCode} onChangeText={value => setResetCode(value.replace(/\D/g, '').slice(0, 6))} />
                   <FormField label="New password" onChangeText={setNewPassword} secureTextEntry value={newPassword} />
                   <FormField label="Confirm password" onChangeText={setConfirmPassword} secureTextEntry value={confirmPassword} />
                 </View>
                 <View style={styles.requirements}>
-                  <Requirement label="At least 8 characters" valid />
-                  <Requirement label="One uppercase letter" valid />
-                  <Requirement label="One number or symbol" />
+                  <Requirement label="Từ 6 ký tự" valid={newPassword.length >= 6} />
+
+
                 </View>
               </View>
-              <PrimaryButton label="Reset password" onPress={() => setStage('success')} />
+              <Pressable disabled={busy || resendSeconds > 0} onPress={() => void run(async () => { await post('/auth/forgot-password', { email: email.trim() }); setResendSeconds(60); setError('Đã yêu cầu gửi lại mã OTP. Kiểm tra hộp thư của bạn.'); })}><Text style={styles.linkText}>{resendSeconds ? `Gửi lại mã sau ${resendSeconds}s` : 'Gửi lại mã OTP'}</Text></Pressable>
+              <PrimaryButton disabled={busy} label={busy ? 'Đang xử lý...' : 'Reset password'} onPress={() => void run(async () => { if (!/^\d{6}$/.test(resetCode)) throw new Error('Nhập mã OTP gồm 6 chữ số'); if (newPassword.length < 6 || newPassword.length > 128) throw new Error('Mật khẩu cần từ 6 đến 128 ký tự'); if (newPassword !== confirmPassword) throw new Error('Mật khẩu xác nhận không khớp'); await post('/auth/reset-password', { email: email.trim(), code: resetCode, newPassword }); setNewPassword(''); setConfirmPassword(''); setResetCode(''); setLoginPassword(''); setStage('success'); })} />
             </View>
           )}
         </ScrollView>
@@ -197,17 +204,17 @@ function Requirement({ label, valid = false }: { label: string; valid?: boolean 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   flex: { flex: 1 },
-  welcomePage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: layout.maxWidth, paddingBottom: 20, paddingHorizontal: 32, paddingTop: 82, width: '100%' },
+  welcomePage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: 540, paddingBottom: 20, paddingHorizontal: 32, paddingTop: 82, width: '100%' },
   welcomeBrand: { alignItems: 'center' },
   welcomeTitle: { color: colors.text, marginTop: 16, ...typography.display },
   welcomeSubtitle: { color: colors.textSecondary, marginTop: 12, maxWidth: 310, textAlign: 'center', ...typography.bodyLarge },
   welcomeActions: { gap: 12 },
   legal: { color: colors.textMuted, fontSize: 12, lineHeight: 16, paddingHorizontal: 10, textAlign: 'center' },
-  header: { alignItems: 'center', alignSelf: 'center', flexDirection: 'row', height: 56, justifyContent: 'space-between', maxWidth: layout.maxWidth, paddingHorizontal: 12, width: '100%' },
+  header: { alignItems: 'center', alignSelf: 'center', flexDirection: 'row', height: 56, justifyContent: 'space-between', maxWidth: 540, paddingHorizontal: 12, width: '100%' },
   headerButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
   scrollContent: { flexGrow: 1 },
-  screenPage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: layout.maxWidth, minHeight: 570, paddingBottom: 26, paddingHorizontal: 20, paddingTop: 25, width: '100%' },
-  formPage: { alignSelf: 'center', maxWidth: layout.maxWidth, paddingBottom: 28, paddingHorizontal: 20, paddingTop: 25, width: '100%' },
+  screenPage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: 540, minHeight: 570, paddingBottom: 26, paddingHorizontal: 20, paddingTop: 25, width: '100%' },
+  formPage: { alignSelf: 'center', maxWidth: 540, paddingBottom: 28, paddingHorizontal: 20, paddingTop: 25, width: '100%' },
   formTitle: { color: colors.text, ...typography.title },
   formSubtitle: { color: colors.textSecondary, marginTop: 4, maxWidth: 390, ...typography.body },
   fields: { gap: 14, marginTop: 28 },
@@ -233,7 +240,7 @@ const styles = StyleSheet.create({
   requirements: { gap: 5, marginTop: 14 },
   requirementRow: { alignItems: 'center', flexDirection: 'row', gap: 7 },
   requirementText: { color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
-  successPage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: layout.maxWidth, paddingBottom: 26, paddingHorizontal: 20, paddingTop: 210, width: '100%' },
+  successPage: { alignSelf: 'center', flex: 1, justifyContent: 'space-between', maxWidth: 540, paddingBottom: 26, paddingHorizontal: 20, paddingTop: 210, width: '100%' },
   successContent: { alignItems: 'center', position: 'relative' },
   successIconBack: { backgroundColor: '#9BE9D8', borderRadius: 13, height: 48, left: '50%', marginLeft: -29, position: 'absolute', top: 7, transform: [{ rotate: '-5deg' }], width: 48 },
   successIcon: { alignItems: 'center', backgroundColor: colors.success, borderRadius: 13, height: 48, justifyContent: 'center', transform: [{ rotate: '8deg' }], width: 48 },

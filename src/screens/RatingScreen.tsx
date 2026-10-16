@@ -1,53 +1,28 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { Text } from '../components/LocalizedText';
 import { GradientButton } from '../components/GradientButton';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { RemoteState } from '../components/RemoteState';
+import { FormField } from '../components/FormField';
 import { Activity } from '../data/activities';
-import { communityMembers } from '../data/people';
-import { colors, layout, radii } from '../theme';
-
+import { getRatingForm, submitRating } from '../services/communityService';
+import { imageUrl } from '../services/profileService';
+import { useRemote } from '../services/useRemote';
+import { colors, layout } from '../theme';
 export function RatingScreen({ activity, onBack, onComplete }: { activity: Activity; onBack: () => void; onComplete: () => void }) {
-  const [experience, setExperience] = useState(5);
-  const [memberRatings, setMemberRatings] = useState<Record<string, number>>({});
-  const [comment, setComment] = useState('');
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScreenHeader onBack={onBack} title="Đánh giá" />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.page}>
-          <View style={styles.hero}><View style={styles.icon}><Ionicons color={colors.match} name="heart" size={30} /></View><Text style={styles.title}>Trải nghiệm của bạn thế nào?</Text><Text style={styles.subtitle}>{activity.title}</Text><Stars value={experience} onChange={setExperience} /></View>
-          <View style={styles.card}><Text style={styles.cardTitle}>Nhận xét (không bắt buộc)</Text><TextInput multiline onChangeText={setComment} placeholder="Chia sẻ điều bạn thích hoặc góp ý..." placeholderTextColor={colors.textMuted} style={styles.input} value={comment} /></View>
-          <View style={styles.card}><Text style={styles.cardTitle}>Đánh giá thành viên</Text>{communityMembers.slice(0, 3).map((member) => <View key={member.id} style={styles.memberRow}><View style={styles.avatar}><Text style={styles.avatarText}>{member.initial}</Text></View><Text style={styles.memberName}>{member.name}</Text><Stars compact value={memberRatings[member.id] ?? 0} onChange={(value) => setMemberRatings((current) => ({ ...current, [member.id]: value }))} /></View>)}</View>
-          <GradientButton label="Hoàn tất" onPress={onComplete} trailing={<Ionicons color={colors.white} name="checkmark" size={19} />} />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+  const load = useCallback(() => getRatingForm(activity.id), [activity.id]), remote = useRemote(load, null);
+  const [score, setScore] = useState(0), [comment, setComment] = useState(''), [members, setMembers] = useState<Record<string, number>>({}), [busy, setBusy] = useState(false), [error, setError] = useState(''), [sent, setSent] = useState(false);
+  const locked = useRef(false), submitted = remote.data?.submitted;
+  const send = async () => { if (locked.current) return; if (!score) { setError('Chọn điểm cho trải nghiệm của bạn.'); return; } locked.current = true; setBusy(true); setError(''); try { await submitRating(activity.id, { score, comment, members: Object.entries(members).filter(([, value]) => value > 0).map(([userId, value]) => ({ userId, score: value })) }); setSent(true); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Chưa gửi được đánh giá'); } finally { locked.current = false; setBusy(false); } };
+  return <SafeAreaView style={styles.safe}><ScreenHeader title="Đánh giá" onBack={onBack} /><ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled"><RemoteState {...remote} onRetry={remote.reload} />{remote.data && !remote.error && (submitted || sent ? <View style={styles.card}><Ionicons name="checkmark-circle" size={45} color={colors.success} /><Text style={styles.heading}>Cảm ơn bạn đã chia sẻ!</Text><Text style={styles.note}>Đánh giá đã được lưu. Mỗi tài khoản gửi một lần cho mỗi hoạt động.</Text>{submitted && <><Text>Trải nghiệm: {submitted.value.score}/5</Text><Text>{submitted.value.comment}</Text></>}<GradientButton label="Hoàn tất" onPress={onComplete} /></View> : <>
+    <View style={[styles.card, { alignItems: 'center' }]}><Ionicons name="heart-outline" size={36} color={colors.primary} /><Text style={styles.heading}>Trải nghiệm của bạn thế nào?</Text><Text style={styles.note}>{activity.title}</Text><Stars label="Trải nghiệm" value={score} onChange={setScore} /></View>
+    <View style={styles.card}><FormField label="Nhận xét (không bắt buộc)" value={comment} onChangeText={text => setComment(text.slice(0, 1000))} multiline /><Text style={styles.note}>{comment.length}/1000</Text></View>
+    <View style={styles.card}><Text style={styles.heading}>Người đồng hành</Text><Text style={styles.note}>Đánh giá những người bạn đã cùng tham gia (không bắt buộc).</Text>{remote.data.members.map(member => <View key={member.id} style={styles.member}>{member.avatarUrl ? <Image source={{ uri: imageUrl(member.avatarUrl) }} style={styles.avatar} /> : <View style={[styles.avatar, { backgroundColor: colors.primarySoft, justifyContent: 'center', alignItems: 'center' }]}><Text style={{ color: colors.primary }}>{member.name.slice(0, 1)}</Text></View>}<View style={{ flex: 1, gap: 8 }}><Text style={{ fontWeight: '700', color: colors.text }}>{member.name}</Text><Stars small label={member.name} value={members[member.id] || 0} onChange={value => setMembers(current => ({ ...current, [member.id]: value }))} />{Boolean(members[member.id]) && <Pressable accessibilityRole="button" accessibilityLabel={'Bỏ đánh giá ' + member.name} onPress={() => setMembers(current => ({ ...current, [member.id]: 0 }))}><Text style={{ color: colors.textMuted, fontSize: 12 }}>Bỏ chọn</Text></Pressable>}</View></View>)}{!remote.data.members.length && <Text style={styles.note}>Không có người đồng hành khác để đánh giá.</Text>}</View>
+    {error ? <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text> : null}<GradientButton label={busy ? 'Đang gửi...' : 'Gửi đánh giá'} disabled={busy} onPress={() => void send()} />
+  </>)}</ScrollView></SafeAreaView>;
 }
-
-function Stars({ value, onChange, compact = false }: { value: number; onChange: (value: number) => void; compact?: boolean }) {
-  return <View style={[styles.stars, compact && styles.compactStars]}>{[1,2,3,4,5].map((star) => <Pressable key={star} onPress={() => onChange(star)}><Ionicons color={star <= value ? colors.warning : colors.border} name={star <= value ? 'star' : 'star-outline'} size={compact ? 18 : 32} /></Pressable>)}</View>;
-}
-
-const styles = StyleSheet.create({
-  safeArea: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 28 },
-  page: { alignSelf: 'center', maxWidth: layout.maxWidth, padding: 18, width: '100%' },
-  hero: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.largeCard, borderWidth: 1, padding: 22 },
-  icon: { alignItems: 'center', backgroundColor: colors.matchSoft, borderRadius: 28, height: 60, justifyContent: 'center', width: 60 },
-  title: { color: colors.text, fontSize: 21, fontWeight: '900', marginTop: 16, textAlign: 'center' },
-  subtitle: { color: colors.textSecondary, fontSize: 12, marginTop: 6 },
-  stars: { flexDirection: 'row', gap: 8, marginTop: 18 },
-  compactStars: { gap: 2, marginTop: 0 },
-  card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.card, borderWidth: 1, marginVertical: 7, padding: 16 },
-  cardTitle: { color: colors.text, fontSize: 14, fontWeight: '900', marginBottom: 10 },
-  input: { backgroundColor: colors.background, borderRadius: radii.input, color: colors.text, minHeight: 92, padding: 13, textAlignVertical: 'top' },
-  memberRow: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', minHeight: 58 },
-  avatar: { alignItems: 'center', backgroundColor: colors.primarySoft, borderRadius: 18, height: 38, justifyContent: 'center', width: 38 },
-  avatarText: { color: colors.primary, fontSize: 13, fontWeight: '900' },
-  memberName: { color: colors.text, flex: 1, fontSize: 12.5, fontWeight: '700', marginLeft: 10 },
-});
+function Stars({ label, value, onChange, small = false }: { label: string; value: number; onChange: (value: number) => void; small?: boolean }) { return <View style={{ flexDirection: 'row', gap: 4 }}>{[1, 2, 3, 4, 5].map(star => <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${star} sao`} accessibilityState={{ selected: value === star }} onPress={() => onChange(star)} key={star} style={{ padding: small ? 5 : 6 }}><Ionicons name={star <= value ? 'star' : 'star-outline'} color={star <= value ? colors.warning : colors.textMuted} size={small ? 24 : 30} /></Pressable>)}</View>; }
+const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, page: { padding: 18, paddingBottom: 40, maxWidth: Math.min(layout.maxWidth, 800), width: '100%', alignSelf: 'center', gap: 16 }, card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 24, padding: 20, gap: 14 }, heading: { fontSize: 19, fontWeight: '700', color: colors.text, lineHeight: 27 }, note: { fontSize: 13, color: colors.textSecondary, lineHeight: 21 }, member: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }, avatar: { width: 42, height: 42, borderRadius: 21 } });

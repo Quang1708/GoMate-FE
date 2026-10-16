@@ -13,6 +13,8 @@ type FormFieldProps = {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
+  editable?: boolean;
+  maxLength?: number;
   placeholder?: string;
   secureTextEntry?: boolean;
   keyboardType?: ComponentProps<typeof TextInput>['keyboardType'];
@@ -26,6 +28,8 @@ export function FormField({
   label,
   value,
   onChangeText,
+  editable,
+  maxLength,
   placeholder,
   secureTextEntry,
   keyboardType,
@@ -40,10 +44,14 @@ export function FormField({
       <View style={[styles.field, multiline && styles.multilineField]}>
         {icon && <Ionicons color={colors.textMuted} name={icon} size={20} />}
         <TextInput
-          autoCapitalize={keyboardType === 'email-address' ? 'none' : 'sentences'}
+          accessibilityLabel={translate(label)}
+          autoCapitalize={keyboardType === 'email-address' || secureTextEntry ? 'none' : 'sentences'}
+          autoCorrect={keyboardType !== 'email-address' && !secureTextEntry}
           keyboardType={keyboardType}
           multiline={multiline}
           onChangeText={onChangeText}
+          editable={editable}
+          maxLength={maxLength}
           placeholder={placeholder ? translate(placeholder) : undefined}
           placeholderTextColor={colors.textMuted}
           secureTextEntry={secureTextEntry}
@@ -85,9 +93,11 @@ const styles = StyleSheet.create({
     color: colors.ink,
     flex: 1,
     fontSize: 14,
-    lineHeight: 22,
+    minWidth: 0,
+    minHeight: 46,
     marginLeft: 10,
-    paddingVertical: 0,
+    paddingVertical: 10,
+    includeFontPadding: true,
   },
   inputWithoutIcon: { marginLeft: 0 },
   multilineInput: {

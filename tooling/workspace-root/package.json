@@ -1,0 +1,11 @@
+{
+  "name": "gomate-dev",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:all": "concurrently --kill-others --raw --names API,EXPO \"npm --prefix GoMate-BE run dev\" \"npm --prefix GoMate-FE run start\""
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

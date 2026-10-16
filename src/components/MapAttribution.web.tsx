@@ -1,0 +1,2 @@
+import type { SearchProvider } from '../services/mapsService';
+export function MapAttribution({ provider }: { provider?: SearchProvider | 'none' }) { return <a href={provider === 'vietmap' ? 'https://maps.vietmap.vn/' : 'https://www.mapbox.com/about/maps/'} target="_blank" rel="noreferrer" translate="no" style={{ display: 'block', fontSize: 12, color: '#5E5E5E', padding: '10px 0', fontFamily: 'sans-serif' }}>{provider === 'vietmap' ? 'Địa điểm từ VIETMAP' : '© Mapbox'}</a>; }

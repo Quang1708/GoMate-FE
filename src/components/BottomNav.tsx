@@ -1,8 +1,9 @@
+import { UnreadDot } from './UnreadDot';
 import { Text } from './LocalizedText';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, shadows } from '../theme';
+import { colors, layout, shadows } from '../theme';
 
 export type MainTab = 'home' | 'match' | 'create' | 'messages' | 'profile';
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -29,6 +30,7 @@ export function BottomNav({ activeTab, onChange }: BottomNavProps) {
         return (
           <Pressable
             accessibilityRole="tab"
+            aria-selected={active}
             accessibilityState={{ selected: active }}
             key={item.tab}
             onPress={() => onChange(item.tab)}
@@ -45,7 +47,7 @@ export function BottomNav({ activeTab, onChange }: BottomNavProps) {
                   name={active ? item.activeIcon : item.icon}
                   size={22}
                 />
-                {item.tab === 'messages' && <View style={styles.messageDot} />}
+                {item.tab === 'messages' && <UnreadDot kind="messages" style={styles.messageDot} />}
               </View>
             )}
             <Text style={[styles.label, active && styles.activeLabel]}>{item.label}</Text>
@@ -58,6 +60,9 @@ export function BottomNav({ activeTab, onChange }: BottomNavProps) {
 
 const styles = StyleSheet.create({
   nav: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: layout.maxWidth,
     backgroundColor: colors.surface,
     borderTopColor: colors.border,
     borderTopWidth: 1,

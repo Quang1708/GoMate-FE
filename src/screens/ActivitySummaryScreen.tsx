@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,9 +7,14 @@ import { Text } from '../components/LocalizedText';
 import { GradientButton } from '../components/GradientButton';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Activity } from '../data/activities';
+import { getActivity, listAttendance, listUpdates } from '../services/activityApi';
+import { useRemote } from '../services/useRemote';
+import { RemoteState } from '../components/RemoteState';
 import { colors, layout, radii } from '../theme';
 
 export function ActivitySummaryScreen({ activity, onBack, onRate }: { activity: Activity; onBack: () => void; onRate: () => void }) {
+  const loader = useCallback(async () => { const [current, attendance, updates] = await Promise.all([getActivity(activity.id), listAttendance(activity.id), listUpdates(activity.id)]); return { current, attendance, updates }; }, [activity.id]);
+  const remote = useRemote(loader, null);
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScreenHeader onBack={onBack} title="Tổng kết hoạt động" />
@@ -16,9 +22,12 @@ export function ActivitySummaryScreen({ activity, onBack, onRate }: { activity: 
         <View style={styles.page}>
           <Image source={activity.image} style={styles.image} />
           <View style={styles.success}><Ionicons color={colors.success} name="checkmark-circle" size={28} /><View style={styles.successCopy}><Text style={styles.successTitle}>Hoạt động đã hoàn thành</Text><Text style={styles.successText}>{activity.title} · {activity.members} thành viên</Text></View></View>
-          <View style={styles.stats}><Stat label="Thời lượng" value="2h 15m" /><View style={styles.divider} /><Stat label="Updates" value="5" /><View style={styles.divider} /><Stat label="Ảnh" value="8" /></View>
-          <View style={styles.card}><Text style={styles.cardTitle}>Tổng kết chi phí</Text><SummaryRow label="Tổng chi phí" value="480.000đ" /><SummaryRow label="Phần của bạn" value="120.000đ" /><SummaryRow label="Trạng thái" value="Đã cân bằng" success /></View>
-          <View style={styles.card}><Text style={styles.cardTitle}>Khoảnh khắc</Text><View style={styles.photoGrid}>{[1,2,3].map((item) => <Image key={item} source={activity.image} style={styles.photo} />)}</View></View>
+          <RemoteState {...remote} onRetry={remote.reload} />
+          {remote.data && <>
+            <View style={styles.stats}><Stat label="Có mặt / đến muộn" value={String(remote.data.attendance.filter(item => ['present', 'late'].includes(item.status)).length)} /><View style={styles.divider} /><Stat label="Cập nhật" value={String(remote.data.updates.length)} /><View style={styles.divider} /><Stat label="Ảnh" value={String(activity.images?.length || 0)} /></View>
+            <View style={styles.card}><Text style={styles.cardTitle}>Chi phí dự kiến</Text><SummaryRow label="Mỗi người" value={activity.estimatedCost} /><Text>Chi phí tham khảo khi tạo hoạt động.</Text></View>
+            {Boolean(activity.images?.length) && <View style={styles.card}><Text style={styles.cardTitle}>Ảnh hoạt động</Text><ScrollView horizontal contentContainerStyle={{ gap: 8 }}>{activity.images!.map((source, index) => <Image key={index} source={source} style={{ width: 140, height: 100, borderRadius: 14 }} />)}</ScrollView></View>}
+          </>}
           <GradientButton label="Đánh giá trải nghiệm" onPress={onRate} trailing={<Ionicons color={colors.white} name="star" size={18} />} />
         </View>
       </ScrollView>

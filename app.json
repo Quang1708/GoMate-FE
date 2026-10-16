@@ -22,16 +22,21 @@
         "expo-image-picker",
         {
           "photosPermission": "GoMate uses your photos to build your profile and share your favorite moments.",
-          "cameraPermission": false,
+          "cameraPermission": "GoMate dùng camera khi bạn chọn chụp ảnh để gửi trong cuộc trò chuyện.",
           "microphonePermission": false
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow GoMate to find nearby activities."
+          "locationWhenInUsePermission": "GoMate dùng vị trí để tìm hoạt động gần bạn.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
         }
-      ]
-    ]
+      ],
+      "expo-sharing",
+      "expo-video"
+    ],
+    "scheme": "gomate"
   }
 }

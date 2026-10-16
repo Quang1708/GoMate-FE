@@ -9,7 +9,7 @@ import { GradientButton } from '../components/GradientButton';
 import { Text } from '../components/LocalizedText';
 import { useLanguage } from '../i18n/LanguageContext';
 import { colors, layout, radii, typography } from '../theme';
-import { Profile, updateProfile, uploadAvatar } from '../services/profileService';
+import { Profile, updateProfile, uploadAvatar } from '../services/legacyProfileService';
 import { useProfile } from '../hooks/useProfile';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];

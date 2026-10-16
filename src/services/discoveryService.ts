@@ -1,6 +1,6 @@
 import type { Activity } from '../data/activities';
-import type { ActivityFilters } from '../screens/FilterScreen';
-import { ApiError, getSession } from './authService';
+import { apiBaseUrl, ApiError, getSession } from './authService';
+export type ActivityFilters = { distance: number; categories: string[]; budget: string; days: number[]; fromHour: number; toHour: number };
 
 export type Coordinates = { latitude: number; longitude: number };
 export type ActivityResult = {
@@ -28,7 +28,7 @@ export function searchParams(filters: ActivityFilters, q: string, page: number, 
   return params;
 }
 export async function searchActivities(filters: ActivityFilters, q: string, page: number, coords: Coordinates | undefined, signal: AbortSignal) {
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/+$/, '');
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/+$/, '') || apiBaseUrl;
   const session = getSession();
   if (!base || !session) throw new Error('Vui lòng đăng nhập và kiểm tra cấu hình API.');
   const response = await fetch(`${base}/activities?${searchParams(filters, q, page, coords)}`, {

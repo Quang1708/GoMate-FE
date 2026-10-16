@@ -1,7 +1,19 @@
 import { ImageSourcePropType } from 'react-native';
 
 export type Activity = {
+  memberAvatars?: { userId: string; name: string; avatarUrl?: string | null }[];
+  version?: number; reservedSeats?: number; companions?: { name: string; note: string }[]; hostAvatarUrl?: string | null; costNote?: string; itinerary?: import('../services/planService').ItineraryStep[]; planLink?: string; planFile?: import('../services/planService').PlanFile | null;
+  organizerType?: 'personal' | 'business';
+  coordinates?: import('../services/locationService').Coordinates | null;
   id: string;
+  hostId?: string;
+  minParticipants?: number;
+  participantPreferences?: import('../components/ActivityChoices').ParticipantPreferences;
+  meetingPoint?: string;
+  startsAt?: string;
+  endsAt?: string;
+  requestStatus?: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'left' | 'removed';
+  backendStatus?: 'published' | 'in-progress' | 'completed';
   title: string;
   host: string;
   location: string;
@@ -18,6 +30,7 @@ export type Activity = {
   hostCompletedActivities: number;
   status?: 'pending' | 'confirmed' | 'in-progress' | 'completed';
   image: ImageSourcePropType;
+  images?: ImageSourcePropType[];
 };
 
 export const activities: Activity[] = [

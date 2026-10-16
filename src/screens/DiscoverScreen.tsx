@@ -4,10 +4,9 @@ import { ApiActivityDetailScreen } from './ActivityManagerScreen';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../components/LocalizedText';
-import { ActivityFilters } from './FilterScreen';
 import { MatchScreen } from './MatchScreen';
 import { Activity } from '../data/activities';
-import { activityCard, Coordinates, searchActivities } from '../services/discoveryService';
+import { activityCard, ActivityFilters, Coordinates, searchActivities } from '../services/discoveryService';
 
 export type DiscoveryContext = { query: string; coords?: Coordinates };
 export function DiscoverScreen({ filters, onBack, onFilterPress, context, onContextChange }: {
@@ -63,9 +62,8 @@ export function DiscoverScreen({ filters, onBack, onFilterPress, context, onCont
       {!!error && <Pressable onPress={() => { setLoading(true); setRetry(value => value + 1); }}><Text accessibilityRole="alert">{error} · Thử lại</Text></Pressable>}
     </View>
     <MatchScreen key={`${query}:${coords?.latitude}:${coords?.longitude}:${retry}`} activityItems={items} state={loading ? 'loading' : error ? 'network-error' : 'ready'}
-      onRetry={() => { setLoading(true); setRetry(value => value + 1); }}
-      distanceLabel={coords ? `Trong ${filters.distance} km` : 'Mọi khu vực'} onBack={onBack} onFilterPress={onFilterPress}
-      onMatched={activity => setDetailId(activity.id)} />
+      locationLabel={coords ? `Trong ${filters.distance} km` : 'Mọi khu vực'} onBack={onBack} onFilterPress={onFilterPress}
+      onMatched={async activity => { setDetailId(activity.id); return false; }} />
     {hasMore && !loading && !error && <Pressable style={{ padding: 14, alignItems: 'center' }} onPress={() => { setLoading(true); setPage(value => value + 1); }}><Text>Tải thêm hoạt động</Text></Pressable>}
   </SafeAreaView>;
 }

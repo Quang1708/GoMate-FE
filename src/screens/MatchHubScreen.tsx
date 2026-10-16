@@ -1,40 +1,46 @@
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { useProfile } from '../services/ProfileContext';
+import { UserAvatar } from '../components/UserAvatar';
 import { BrandLogo } from '../components/BrandLogo';
 import { Text } from '../components/LocalizedText';
 import { colors, layout, shadows } from '../theme';
 
-const avatar = require('../assets/profile-avatar.png');
 
 type MatchHubScreenProps = {
   onDiscover: () => void;
+  onFavorites: () => void;
   onPending: () => void;
   onManage: () => void;
   onNotifications: () => void;
   onPreviewProfile: () => void;
+  onProfile: () => void;
   pendingCount?: number;
   hostRequestCount?: number;
 };
 
 export function MatchHubScreen({
   onDiscover,
+  onFavorites,
   onPending,
   onManage,
   onNotifications,
   onPreviewProfile,
+  onProfile,
   pendingCount = 2,
   hostRequestCount = 3,
 }: MatchHubScreenProps) {
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={styles.page}>
-        <MatchHubHeader onNotifications={onNotifications} />
+        <MatchHubHeader onNotifications={onNotifications} onProfile={onProfile} />
         <Text style={styles.title}>Match</Text>
 
         <MatchHero onPress={onDiscover} />
+        <Pressable accessibilityRole="button" onPress={onFavorites} style={styles.profileAction}><Ionicons name="heart-outline" size={22} color={colors.primary} /><Text style={styles.profileActionText}>Hoạt động yêu thích</Text><Ionicons name="chevron-forward" size={18} color={colors.primary} /></Pressable>
 
         <Text style={styles.sectionTitle}>Hoạt động của bạn</Text>
         <View style={styles.managementCard}>
@@ -62,7 +68,7 @@ export function MatchHubScreen({
   );
 }
 
-function MatchHubHeader({ onNotifications }: { onNotifications: () => void }) {
+function MatchHubHeader({ onNotifications, onProfile }: { onNotifications: () => void; onProfile: () => void }) {
   return (
     <View style={styles.header}>
       <BrandLogo compact />
@@ -71,7 +77,7 @@ function MatchHubHeader({ onNotifications }: { onNotifications: () => void }) {
           <Ionicons color={colors.textSecondary} name="notifications-outline" size={23} />
           <View style={styles.notificationDot} />
         </Pressable>
-        <Image source={avatar} style={styles.headerAvatar} />
+        <UserAvatar onPress={onProfile} />
       </View>
     </View>
   );
@@ -141,20 +147,21 @@ function ManagementRow({ badgeCount, icon, onPress, subtitle, title }: Managemen
 }
 
 function ProfilePreviewCard({ onPress }: { onPress: () => void }) {
+  const { profile } = useProfile();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.profileCard, pressed && styles.pressed]}>
       <View style={styles.profileIdentity}>
-        <Image source={avatar} style={styles.profileAvatar} />
+        <UserAvatar size={58} />
         <View style={styles.profileCopy}>
           <View style={styles.profileNameRow}>
-            <Text style={styles.profileName}>Minh</Text>
+            <Text style={styles.profileName}>{profile?.name}</Text>
             <Ionicons color={colors.success} name="checkmark-circle" size={16} />
           </View>
           <View style={styles.profileStats}>
             <Ionicons color={colors.warning} name="star" size={13} />
-            <Text style={styles.profileMeta}>4.8</Text>
+            <Text style={styles.profileMeta}>{profile?.location}</Text>
             <View style={styles.metaDot} />
-            <Text style={styles.profileMeta}>12 hoạt động</Text>
+            <Text style={styles.profileMeta}>{profile?.interests.length || 0} sở thích</Text>
           </View>
         </View>
       </View>

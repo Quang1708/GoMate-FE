@@ -1,50 +1,33 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '../components/LocalizedText';
+import { post, verifyEmail } from '../services/api';
 import { colors, control, layout, typography } from '../theme';
-
-import { Credentials, login, resendVerification, verifyEmail } from '../services/authService';
 
 const CODE_LENGTH = 6;
 
-export function VerifyEmailScreen({ credentials, onVerified, onBack }: { credentials: Credentials; onVerified: () => void; onBack: () => void }) {
+export function VerifyEmailScreen({ email, onVerified, onBack }: { email: string; onVerified: () => void; onBack: () => void }) {
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const submit = async (resend = false) => {
+    if (busy) return;
+    setBusy(true); setFeedback('');
+    try {
+      if (resend) { await post('/auth/resend-verification', { email }); setFeedback('Đã yêu cầu gửi lại mã. Vui lòng đợi ít nhất 60 giây.'); }
+      else { await verifyEmail(email, code.join('')); onVerified(); }
+    } catch (reason) { setFeedback(reason instanceof Error ? reason.message : 'Xác minh thất bại'); }
+    finally { setBusy(false); }
+  };
   const inputs = useRef<(TextInput | null)[]>([]);
 
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [cooldown, setCooldown] = useState(0);
-  const [verified, setVerified] = useState(false);
-  const submitting = useRef(false);
-  useEffect(() => {
-    if (!cooldown) return;
-    const timer = setTimeout(() => setCooldown((seconds) => seconds - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [cooldown]);
-  const submit = async (resend = false) => {
-    if (submitting.current || (resend && cooldown > 0)) return;
-    submitting.current = true; setBusy(true); setMessage('');
-    try {
-      if (resend) {
-        await resendVerification(credentials.email); setCooldown(60);
-        setMessage('Nếu tài khoản cần xác minh, mã mới sẽ được gửi. Kiểm tra cả thư rác.');
-      } else {
-        if (!verified) { await verifyEmail(credentials.email, code.join('')); setVerified(true); }
-        await login(credentials); onVerified();
-      }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Vui lòng thử lại.');
-    } finally { submitting.current = false; setBusy(false); }
-  };
-
   const updateDigit = (value: string, index: number) => {
-    const digits = value.replace(/\D/g, '').slice(0, CODE_LENGTH);
-    const start = digits.length === CODE_LENGTH ? 0 : index;
-    setCode((current) => current.map((item, i) => i >= start && i < start + Math.max(1, digits.length) ? (digits[i - start] || '') : item));
-    if (digits) inputs.current[Math.min(start + digits.length, CODE_LENGTH - 1)]?.focus();
+    const digit = value.replace(/\D/g, '').slice(-1);
+    setCode((current) => current.map((item, itemIndex) => itemIndex === index ? digit : item));
+    if (digit && index < CODE_LENGTH - 1) inputs.current[index + 1]?.focus();
   };
 
   const handleKeyPress = (key: string, index: number) => {
@@ -55,35 +38,32 @@ export function VerifyEmailScreen({ credentials, onVerified, onBack }: { credent
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.page}>
         <View style={styles.header}>
-          <Pressable accessibilityLabel="Back" hitSlop={8} disabled={busy} onPress={onBack} style={styles.headerButton}><Ionicons color={colors.textSecondary} name="chevron-back" size={24} /></Pressable>
+          <Pressable accessibilityLabel="Back" hitSlop={8} onPress={onBack} style={styles.headerButton}><Ionicons color={colors.textSecondary} name="chevron-back" size={24} /></Pressable>
           <Pressable accessibilityLabel="More options" hitSlop={8} style={styles.headerButton}><Ionicons color={colors.text} name="ellipsis-horizontal" size={22} /></Pressable>
         </View>
         <View style={styles.body}>
           <View>
             <Text style={styles.title}>Check your email</Text>
-            <Text style={styles.subtitle}>{`Nhập mã 6 số gửi đến ${credentials.email} để xác minh email.`}</Text>
+            <Text style={styles.subtitle}>{`Nhập mã xác minh 6 số đã gửi tới ${email}. Xác minh xong, bạn sẽ tự động đăng nhập.`}</Text>
             <View style={styles.codeRow}>
               {code.map((digit, index) => (
                 <TextInput
                   accessibilityLabel={`Verification digit ${index + 1}`}
                   key={index}
                   keyboardType="number-pad"
-                  maxLength={CODE_LENGTH}
-                  editable={!busy && !verified}
+                  maxLength={1}
                   onChangeText={(value) => updateDigit(value, index)}
                   onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                   ref={(input) => { inputs.current[index] = input; }}
                   selectTextOnFocus
-                  style={[styles.codeInput, index === 2 && !digit && styles.codeInputActive]}
+                  style={styles.codeInput}
                   value={digit}
                 />
               ))}
             </View>
-            <View style={styles.resendRow}><Text style={styles.resendHint}>Did not get it?</Text><Pressable disabled={busy || cooldown > 0 || verified} onPress={() => void submit(true)}><Text style={styles.resend}>{cooldown > 0 ? `Gửi lại sau ${cooldown}s` : "Resend code"}</Text></Pressable></View>
-            {verified && <Text style={{ marginTop: 16 }}>Email đã xác minh. Bạn có thể thử đăng nhập lại nếu kết nối thất bại.</Text>}
-            {!!message && <Text accessibilityRole="alert" style={{ marginTop: 16 }}>{message}</Text>}
+            <View style={styles.resendRow}><Text style={styles.resendHint}>Did not get it?</Text><Pressable disabled={busy} onPress={() => void submit(true)}><Text style={styles.resend}>Resend code</Text></Pressable></View>
           </View>
-          <Pressable disabled={busy || (!verified && code.join('').length !== CODE_LENGTH)} onPress={() => void submit()} style={({ pressed }) => [styles.primaryButton, (busy || (!verified && code.join('').length !== CODE_LENGTH)) && { opacity: 0.5 }, pressed && styles.pressed]}><Text style={styles.primaryButtonLabel}>{busy ? "Đang xử lý…" : verified ? "Đăng nhập" : "Verify email"}</Text></Pressable>
+          {feedback ? <Text>{feedback}</Text> : null}<Pressable disabled={busy} onPress={() => void submit()} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><Text style={styles.primaryButtonLabel}>Verify email</Text></Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -100,7 +80,6 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.textSecondary, marginTop: 4, maxWidth: 400, ...typography.body },
   codeRow: { flexDirection: 'row', gap: 9, marginTop: 28 },
   codeInput: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 12, borderWidth: 1, color: colors.text, flex: 1, fontSize: 25, fontWeight: '700', height: 58, maxWidth: 66, padding: 0, textAlign: 'center' },
-  codeInputActive: { borderColor: colors.primary, borderWidth: 2 },
   resendRow: { alignItems: 'center', flexDirection: 'row', gap: 4, marginTop: 24 },
   resendHint: { color: colors.textSecondary, fontSize: 13, lineHeight: 20 },
   resend: { color: colors.primary, fontSize: 13, fontWeight: '700', lineHeight: 20 },

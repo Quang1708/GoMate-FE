@@ -5,33 +5,48 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "dev": "expo start",
-    "build": "expo export --platform web --output-dir dist",
-    "build:mobile": "expo export --platform android --platform ios --output-dir dist-native",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:integration": "node --test tests/backend.integration.cjs",
+    "test:web": "node tests/web.smoke.cjs",
+    "test:trip:web": "node tests/trip-social.web.cjs",
+    "test:community:web": "node tests/community.web.cjs",
+    "test:maps:web": "node tests/mapbox-maps.web.cjs",
+    "test:maps:live": "node tests/mapbox-live.web.cjs",
+    "dev": "expo start",
+    "build": "expo export --platform web --output-dir dist",
+    "build:mobile": "expo export --platform android --platform ios --output-dir dist-native"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
-    "expo": "~57.0.26",
+    "@react-native-google-signin/google-signin": "^16.1.5",
+    "expo": "~57.0.30",
+    "expo-constants": "~57.0.22",
+    "expo-document-picker": "~57.0.3",
+    "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
     "expo-image-picker": "~57.0.20",
     "expo-linear-gradient": "~57.0.2",
-    "expo-location": "~57.0.20",
+    "expo-location": "~57.0.21",
+    "expo-secure-store": "~57.0.4",
+    "expo-sharing": "~57.0.23",
     "expo-status-bar": "~57.0.1",
+    "expo-video": "~57.0.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-web": "^0.21.2"
+    "react-native-web": "^0.21.2",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.2",
+    "playwright": "^1.64.1",
     "typescript": "~6.0.3"
   }
 }

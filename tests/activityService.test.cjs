@@ -6,7 +6,7 @@ const ts = require('typescript');
 test('activity service validates form dates, converts UTC+7, and uses CRUD endpoints', async () => {
   const exports = {}, calls = [];
   let status = 200;
-  const source = fs.readFileSync(require('node:path').join(__dirname, '../src/services/activityService.ts'), 'utf8');
+  const source = fs.readFileSync(require('node:path').join(__dirname, '../src/services/legacyActivityService.ts'), 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   vm.runInNewContext(compiled, { exports, AbortController, setTimeout, clearTimeout,
     process: { env: { EXPO_PUBLIC_API_BASE_URL: 'https://example.com/api' } },

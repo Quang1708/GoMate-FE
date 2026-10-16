@@ -1,60 +1,23 @@
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { Text } from '../components/LocalizedText';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { RemoteState } from '../components/RemoteState';
+import { listNotifications, Notification, readNotification } from '../services/communityService';
+import { useRemote } from '../services/useRemote';
 import { colors, layout } from '../theme';
-
-const items = [
-  { icon: 'person-add' as const, color: colors.primary, bg: colors.primarySoft, title: 'Yêu cầu tham gia mới', text: 'Lan Anh muốn tham gia “Cà phê cuối tuần”.', time: '2 phút trước', unread: true },
-  { icon: 'chatbubble' as const, color: colors.google, bg: '#EAF3FF', title: 'Tin nhắn mới từ Linh', text: '“Mình sẽ gửi điểm tập trung cho cả nhóm nhé!”', time: '5 phút trước', unread: true },
-  { icon: 'checkmark-circle' as const, color: colors.success, bg: colors.successSoft, title: 'Yêu cầu đã được xác nhận', text: 'Bạn đã tham gia “Giao lưu cầu lông”.', time: '24 phút trước', unread: true },
-  { icon: 'location' as const, color: colors.warning, bg: colors.warningSoft, title: 'Địa điểm đã thay đổi', text: 'Host đã cập nhật điểm tập trung cho chuyến đi Đà Lạt.', time: '1 giờ trước' },
-  { icon: 'alarm' as const, color: colors.primary, bg: colors.primarySoft, title: 'Hoạt động sắp diễn ra', text: 'Pickleball sau giờ làm bắt đầu vào 18:30 hôm nay.', time: 'Hôm qua' },
-  { icon: 'star' as const, color: colors.match, bg: colors.matchSoft, title: 'Chia sẻ trải nghiệm của bạn', text: 'Đánh giá hoạt động và những người bạn đã gặp.', time: 'Hôm qua' },
-];
-
-export function NotificationsScreen({ onBack }: { onBack: () => void }) {
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScreenHeader
-        onBack={onBack}
-        right={<Pressable hitSlop={8}><Ionicons color={colors.text} name="ellipsis-horizontal" size={21} /></Pressable>}
-        title="Thông báo"
-      />
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        <View style={styles.sectionHeader}><Text style={styles.day}>MỚI</Text><Pressable><Text style={styles.markRead}>Đánh dấu đã đọc</Text></Pressable></View>
-        {items.slice(0, 3).map((item) => <NotificationRow item={item} key={item.title} />)}
-        <Text style={styles.earlier}>TRƯỚC ĐÓ</Text>
-        {items.slice(3).map((item) => <NotificationRow item={item} key={item.title} />)}
-      </ScrollView>
-    </SafeAreaView>
-  );
+export function NotificationsScreen({ onBack, onOpen }: { onBack: () => void; onOpen: (notice: Notification) => Promise<void> }) {
+  const remote = useRemote(listNotifications, []), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const reload = remote.reload;
+  useEffect(() => { const timer = setInterval(() => void reload(), 10000); return () => clearInterval(timer); }, [reload]);
+  const open = async (notice?: Notification) => { if (busy) return; setBusy(true); setError(''); try { await readNotification(notice?.id); await remote.reload(); if (notice) await onOpen(notice); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không mở được thông báo'); } finally { setBusy(false); } };
+  return <SafeAreaView style={styles.safe}><ScreenHeader title="Thông báo" onBack={onBack} /><View style={styles.heading}><Text style={styles.headingText}>{remote.data.filter(item => !item.readAt).length} chưa đọc</Text><Pressable accessibilityRole="button" disabled={busy || !remote.data.some(item => !item.readAt)} onPress={() => void open()}><Text style={styles.link}>Đánh dấu tất cả đã đọc</Text></Pressable></View><ScrollView contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={remote.loading} onRefresh={remote.reload} />}>
+    {remote.error ? <RemoteState {...remote} loading={false} onRetry={remote.reload} /> : null}
+    {!remote.loading && !remote.error && !remote.data.length && <View style={styles.empty}><Ionicons name="notifications-outline" size={40} color={colors.primary} /><Text style={styles.headingText}>Bạn đã cập nhật mọi thứ</Text><Text style={styles.note}>Lời mời, tin nhắn và cập nhật hoạt động mới sẽ xuất hiện tại đây.</Text></View>}
+    {remote.data.map(notice => <Pressable accessibilityRole="button" disabled={busy} onPress={() => void open(notice)} key={notice.id} style={[styles.item, !notice.readAt && { backgroundColor: colors.primarySoft }]}><View style={styles.icon}><Ionicons name={notice.type === 'message' ? 'chatbubble-outline' : notice.type.startsWith('friend') ? 'person-add-outline' : 'calendar-outline'} size={23} color={colors.primary} /></View><View style={{ flex: 1, gap: 6 }}><Text style={styles.title}>{notice.title}</Text><Text numberOfLines={3} style={styles.body}>{notice.text}</Text><Text style={styles.note}>{new Date(notice.createdAt).toLocaleString('vi-VN')}</Text></View>{!notice.readAt && <View style={styles.dot} />}</Pressable>)}
+    {error ? <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text> : null}
+  </ScrollView></SafeAreaView>;
 }
-
-function NotificationRow({ item }: { item: (typeof items)[number] }) {
-  return (
-    <Pressable style={styles.item}>
-      <View style={[styles.icon, { backgroundColor: item.bg }]}><Ionicons color={item.color} name={item.icon} size={20} /></View>
-      <View style={styles.copy}><Text style={styles.title}>{item.title}</Text><Text style={styles.text}>{item.text}</Text><Text style={styles.time}>{item.time}</Text></View>
-      {item.unread && <View style={styles.dot} />}
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  safeArea: { backgroundColor: colors.background, flex: 1 },
-  list: { alignSelf: 'center', maxWidth: layout.maxWidth, paddingBottom: 28, paddingHorizontal: 18, width: '100%' },
-  sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, marginTop: 15 },
-  day: { color: colors.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  markRead: { color: colors.primary, fontSize: 12, fontWeight: '600' },
-  earlier: { color: colors.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 5, marginTop: 24 },
-  item: { alignItems: 'flex-start', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', minHeight: 86, paddingVertical: 14 },
-  icon: { alignItems: 'center', borderRadius: 15, height: 42, justifyContent: 'center', width: 42 },
-  copy: { flex: 1, marginLeft: 12 },
-  title: { color: colors.text, fontSize: 13.5, fontWeight: '700' },
-  text: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 3 },
-  time: { color: colors.textMuted, fontSize: 10.5, marginTop: 5 },
-  dot: { backgroundColor: colors.primary, borderRadius: 4, height: 8, marginLeft: 8, marginTop: 5, width: 8 },
-});
+const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, heading: { maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center', padding: 18, flexDirection: 'row', justifyContent: 'space-between', gap: 10 }, headingText: { fontSize: 15, fontWeight: '700', color: colors.text }, link: { color: colors.primary, fontSize: 12, fontWeight: '600' }, list: { maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 36, gap: 10 }, item: { padding: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 20, flexDirection: 'row', gap: 12, alignItems: 'flex-start' }, icon: { padding: 10, backgroundColor: colors.surface, borderRadius: 15 }, title: { color: colors.text, fontSize: 14, fontWeight: '700' }, body: { color: colors.textSecondary, fontSize: 13, lineHeight: 20 }, note: { color: colors.textMuted, fontSize: 11, lineHeight: 18 }, dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary, marginTop: 8 }, empty: { padding: 40, gap: 16, alignItems: 'center' } });
