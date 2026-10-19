@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, apiBaseUrl, getSession, login, logout } from '../services/api';
-import { Logo, Icon, AuthShell, PillButton, StatusPill, MetricCard } from './GoMatePortal';
+import { api, apiBaseUrl, getSession, logout } from '../services/api';
+import { Logo, Icon, AuthShell, PillButton, StatusPill, MetricCard, BusinessDashboard, StaffDashboard, AdminDashboard } from './GoMatePortal';
 import './connected-portal.css';
 
 const statusLabel = { pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', publishing: 'Đang xuất bản' };
@@ -8,6 +8,133 @@ const tone = status => status === 'approved' ? 'green' : status === 'rejected' ?
 const format = iso => iso ? new Date(iso).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }) : '—';
 const fieldStyle = 'gm-simple-input';
 function Field({ label, children }) { return <label className="gm-field"><span>{label}</span>{children}</label>; }
+const mockAccounts = [
+  { email: 'admin@gomate.app', password: 'admin123', role: 'admin', name: 'Jordan Lee' },
+  { email: 'staff@gomate.app', password: 'staff123', role: 'staff', name: 'Alex Morgan' },
+  { email: 'partner@gomate.app', password: 'partner123', role: 'business', name: 'GoMate Partner' },
+];
+
+const initialMockBusinessApplications = [
+  { id: 'mock-application-1', company: 'Harbor Pilates', category: 'Wellness studio', taxId: '0317748820', address: '18 Tran Phu, Da Nang', contact: '+84 91 234 5678', email: 'team@harborpilates.vn', userEmail: null, status: 'pending', submittedAt: '1 hr ago', reviewNote: '' },
+  { id: 'mock-application-2', company: 'Moss & Morning', category: 'Local retail', taxId: '0318842201', address: '42 Nguyen Hue, Ho Chi Minh City', contact: '+84 90 123 4567', email: 'hello@mossmorning.vn', userEmail: null, status: 'pending', submittedAt: '12 min ago', reviewNote: '' },
+];
+
+function PortalLoginPage({ onLogin, onRegister, accounts = mockAccounts }) {
+  const [authMode, setAuthMode] = useState('login');
+  const [form, setForm] = useState({ fullName: '', email: '', password: '', company: '', taxId: '', address: '', contact: '' });
+  const [documentFile, setDocumentFile] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const isLogin = authMode === 'login';
+  const updateField = key => event => setForm(current => ({ ...current, [key]: event.target.value }));
+  const returnToLogin = () => { setError(''); setAuthMode('login'); };
+
+  const handleSubmit = async event => {
+    event.preventDefault();
+    setError('');
+    if (isLogin) {
+      const normalizedEmail = form.email.trim().toLowerCase();
+      const account = accounts.find(item => item.email.toLowerCase() === normalizedEmail && item.password === form.password);
+      if (!account) { setError('Sai email hoặc mật khẩu'); return; }
+      onLogin(account);
+      return;
+    }
+
+    if (authMode === 'registerPartner' && !documentFile) {
+      setError('Vui lòng tải lên giấy tờ xác minh doanh nghiệp.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await onRegister({
+        ...form,
+        email: form.email.trim().toLowerCase(),
+        role: authMode === 'registerStaff' ? 'staff' : 'business',
+        name: authMode === 'registerStaff' ? form.fullName.trim() : form.company.trim(),
+        documentFile,
+      });
+    } catch (registrationError) {
+      setError(registrationError.message || 'Không thể tạo tài khoản.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="gomate-portal gm-connected">
+      <AuthShell
+        asideTitle="Kết nối doanh nghiệp với cộng đồng."
+        asideText="Tạo sự kiện, chia sẻ ưu đãi và cùng GoMate mang đến những trải nghiệm đáng nhớ."
+      >
+        <div className="gm-auth-panel">
+          <div className="gm-auth-brand-mark"><Logo /></div>
+          {isLogin ? (
+            <>
+              <div className="gm-auth-heading">
+                <span className="gm-eyebrow">GOMATE PARTNERS</span>
+                <h2>Log In</h2>
+                <p>Dùng tài khoản GoMate của bạn để tiếp tục.</p>
+              </div>
+              <form className="gm-auth-form" onSubmit={handleSubmit}>
+                <label className="gm-field">
+                  <span>Email</span>
+                  <div className="gm-input-wrap">
+                    <Icon name="users" size={17} />
+                    <input type="email" autoComplete="username" required value={form.email} onChange={updateField('email')} aria-invalid={Boolean(error)} />
+                  </div>
+                </label>
+                <label className="gm-field">
+                  <span>Mật khẩu</span>
+                  <div className="gm-input-wrap">
+                    <Icon name="shield" size={17} />
+                    <input type="password" autoComplete="current-password" required value={form.password} onChange={updateField('password')} aria-invalid={Boolean(error)} />
+                  </div>
+                </label>
+                {error && <div role="alert" className="gm-form-error">{error}</div>}
+                <PillButton type="submit" className="gm-btn--wide">Đăng nhập</PillButton>
+              </form>
+              <div className="gm-live-links gm-registration-links">
+                <button type="button" onClick={() => { setError(''); setAuthMode('registerStaff'); }}>Đăng kí Staff</button>
+                <button type="button" onClick={() => { setError(''); setAuthMode('registerPartner'); }}>Đăng kí GoMate Partner</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={returnToLogin} className="gm-back-link"><Icon name="arrow" size={15} />Quay lại đăng nhập</button>
+              <div className="gm-auth-heading">
+                <span className="gm-eyebrow">GoMate registration</span>
+                <h2>{authMode === 'registerStaff' ? 'Đăng ký Staff' : 'Đăng ký GoMate Partner'}</h2>
+                <p>{authMode === 'registerStaff' ? 'Tạo tài khoản để hỗ trợ cộng đồng GoMate.' : 'Gửi thông tin doanh nghiệp để Admin xác minh.'}</p>
+              </div>
+              <form className="gm-auth-form" onSubmit={handleSubmit}>
+                {authMode === 'registerStaff' ? (
+                  <>
+                    <label className="gm-field"><span>Họ và tên</span><div className="gm-input-wrap"><Icon name="users" size={17} /><input value={form.fullName} onChange={updateField('fullName')} autoComplete="name" required /></div></label>
+                    <label className="gm-field"><span>Email</span><div className="gm-input-wrap"><Icon name="users" size={17} /><input type="email" autoComplete="email" value={form.email} onChange={updateField('email')} required /></div></label>
+                    <label className="gm-field"><span>Mật khẩu</span><div className="gm-input-wrap"><Icon name="shield" size={17} /><input type="password" autoComplete="new-password" minLength={8} value={form.password} onChange={updateField('password')} required /></div></label>
+                  </>
+                ) : (
+                  <>
+                    <label className="gm-field"><span>Email</span><div className="gm-input-wrap"><Icon name="users" size={17} /><input type="email" autoComplete="email" value={form.email} onChange={updateField('email')} required /></div></label>
+                    <label className="gm-field"><span>Mật khẩu</span><div className="gm-input-wrap"><Icon name="shield" size={17} /><input type="password" autoComplete="new-password" minLength={8} value={form.password} onChange={updateField('password')} required /></div></label>
+                    <label className="gm-field"><span>Tên công ty</span><div className="gm-input-wrap"><Icon name="grid" size={17} /><input value={form.company} onChange={updateField('company')} autoComplete="organization" required /></div></label>
+                    <label className="gm-field"><span>Mã số thuế (Tax ID)</span><div className="gm-input-wrap"><Icon name="shield" size={17} /><input value={form.taxId} onChange={updateField('taxId')} required /></div></label>
+                    <label className="gm-field"><span>Địa chỉ</span><div className="gm-input-wrap"><Icon name="external" size={17} /><textarea className="gm-textarea" value={form.address} onChange={updateField('address')} autoComplete="street-address" rows={3} required /></div></label>
+                    <label className="gm-field"><span>Thông tin liên hệ</span><div className="gm-input-wrap"><Icon name="users" size={17} /><input value={form.contact} onChange={updateField('contact')} autoComplete="tel" required /></div></label>
+                    <label className="gm-upload-field"><span>Giấy tờ xác minh</span><input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={event => setDocumentFile(event.target.files?.[0] || null)} /><span className="gm-upload-box"><span className="gm-upload-icon"><Icon name="upload" size={18} /></span><strong>{documentFile?.name || 'Chọn tệp PDF, PNG hoặc JPG'}</strong><small>PDF, JPG hoặc PNG</small></span></label>
+                  </>
+                )}
+                {error && <div role="alert" className="gm-form-error">{error}</div>}
+                <PillButton type="submit" disabled={busy} className="gm-btn--wide">{busy ? 'Đang gửi...' : authMode === 'registerStaff' ? 'Đăng ký' : 'Gửi yêu cầu đăng ký'}</PillButton>
+              </form>
+            </>
+          )}
+        </div>
+      </AuthShell>
+    </div>
+  );
+}
+
 async function pages(path) {
   const items = [];
   for (let page = 1; page <= 500; page++) { const result = await api(path + '?page=' + page); items.push(...result.items); if (items.length >= result.total || !result.items.length) return { items }; }
@@ -25,30 +152,114 @@ const emptyDraft = () => {
 export default function ConnectedPortal() {
   const [me, setMe] = useState(null), [data, setData] = useState({ posts: [], applications: [], users: [], metrics: {} });
   const [section, setSection] = useState('overview'), [busy, setBusy] = useState(false), [error, setError] = useState(''), [success, setSuccess] = useState('');
-  const [email, setEmail] = useState(''), [password, setPassword] = useState('');
+  const [mockMode, setMockMode] = useState(false);
+  const [mockPortalState, setMockPortalState] = useState({
+    accounts: { 'partner@gomate.app': { isApproved: true, businessProfile: { company: 'GoMate Partner', category: 'Community & events' } } },
+    applications: initialMockBusinessApplications,
+  });
   const [application, setApplication] = useState({ company: '', category: 'Workshop', website: '' }), [document, setDocument] = useState(null), [notes, setNotes] = useState({});
   const [draft, setDraft] = useState(emptyDraft);
   const load = useCallback(async () => {
+    if (mockMode) return;
     if (!getSession()) { setMe(null); return; }
     const profile = await api('/portal/me'); setMe(profile);
     if (['business', 'staff', 'admin'].includes(profile.role)) {
       const [posts, metrics, applications, users] = await Promise.all([pages('/portal/posts'), api('/portal/metrics'), ['staff', 'admin'].includes(profile.role) ? pages('/portal/applications') : { items: [] }, profile.role === 'admin' ? pages('/portal/users') : { items: [] }]);
       setData({ posts: posts.items, applications: applications.items, users: users.items, metrics });
     }
-  }, []);
+  }, [mockMode]);
   useEffect(() => { let alive = true; void load().catch(reason => { if (alive) setError(reason.message); }); return () => { alive = false; }; }, [load]);
   const run = async action => { if (busy) return; setBusy(true); setError(''); setSuccess(''); try { await action(); } catch (reason) { setError(reason.message); } finally { setBusy(false); } };
-  const signIn = event => { event.preventDefault(); void run(async () => { await login(email, password); await load(); }); };
+  const handleMockLogin = account => {
+    setMockMode(true);
+    setError('');
+    setSuccess('');
+    setSection('overview');
+    const businessState = mockPortalState.accounts[account.email] || { isApproved: false, businessProfile: null };
+    setMe({ id: `mock-${account.role}`, role: account.role, name: account.name, email: account.email, isApproved: account.role === 'business' && businessState.isApproved, businessProfile: businessState.businessProfile, application: businessState.businessProfile });
+  };
+  const handleMockRegister = details => {
+    const email = details.email.trim().toLowerCase();
+    if (mockAccounts.some(account => account.email === email) || mockPortalState.accounts[email]) throw new Error('Email này đã được đăng ký.');
+    const isBusiness = details.role === 'business';
+    const businessProfile = isBusiness ? {
+      company: details.company.trim(), taxId: details.taxId.trim(), address: details.address.trim(), contact: details.contact.trim(),
+      documentName: details.documentFile?.name || '', category: 'Community & events',
+    } : null;
+    const applicationRecord = isBusiness ? {
+      id: `mock-application-${Date.now()}`, ...businessProfile, email, userEmail: email, status: 'pending', submittedAt: 'Just now', reviewNote: '',
+    } : null;
+    const account = { id: `mock-${Date.now()}`, role: details.role, name: isBusiness ? businessProfile.company : details.fullName.trim(), email, password: details.password, isApproved: !isBusiness, businessProfile: applicationRecord || businessProfile };
+    setMockPortalState(current => ({
+      ...current,
+      accounts: { ...current.accounts, [email]: account },
+      applications: applicationRecord ? [...current.applications, applicationRecord] : current.applications,
+    }));
+    setMockMode(true);
+    setSection('overview');
+    setMe({ ...account, application: applicationRecord });
+  };
+  const decideMockBusiness = (id, status, reviewNote = '') => {
+    setMockPortalState(current => {
+      const applicationRecord = current.applications.find(item => item.id === id);
+      if (!applicationRecord || applicationRecord.status !== 'pending') return current;
+      const accounts = applicationRecord.userEmail ? {
+        ...current.accounts,
+        [applicationRecord.userEmail]: { ...current.accounts[applicationRecord.userEmail], isApproved: status === 'approved', businessProfile: { ...applicationRecord, status, reviewNote } },
+      } : current.accounts;
+      return { ...current, accounts, applications: current.applications.map(item => item.id === id ? { ...item, status, reviewNote } : item) };
+    });
+  };
+  const logoutMock = () => {
+    setMe(null);
+    setMockMode(false);
+    setData({ posts: [], applications: [], users: [], metrics: {} });
+    setSection('overview');
+  };
   const apply = event => { event.preventDefault(); void run(async () => { const uploaded = await fileValue(document); await api('/portal/applications', { method: 'POST', body: JSON.stringify({ ...application, document: uploaded }) }); await load(); setSuccess('Đã gửi hồ sơ. Staff sẽ kiểm tra trước khi bạn có thể đăng sự kiện.'); }); };
-  const publish = event => { event.preventDefault(); void run(async () => {
+  const publish = event => {
+    event.preventDefault();
+    if (mockMode) {
+      const post = { id: `mock-post-${Date.now()}`, title: draft.title, businessName: me.name, copy: draft.copy, status: 'pending', discountPercent: Number(draft.discountPercent), offer: draft.offer, offerTerms: draft.offerTerms };
+      setData(current => ({ ...current, posts: [post, ...current.posts], metrics: { ...current.metrics, posts: current.metrics.posts + 1, pendingPosts: current.metrics.pendingPosts + 1 } }));
+      setDraft(emptyDraft());
+      setSuccess('Sự kiện demo đã được gửi cho staff duyệt.');
+      return;
+    }
+    void run(async () => {
     await api('/portal/posts', { method: 'POST', body: JSON.stringify({ title: draft.title, copy: draft.copy, badge: 'Doanh nghiệp', discount: draft.discountPercent ? `Giảm ${draft.discountPercent}%` : '', premium: false, border: 'Solid', discountPercent: Number(draft.discountPercent), offer: draft.offer, offerTerms: draft.offerTerms, event: { category: draft.category, location: draft.location, meetingPoint: draft.meetingPoint, startsAt: new Date(draft.startsAt + ':00+07:00').toISOString(), endsAt: new Date(draft.endsAt + ':00+07:00').toISOString(), maxParticipants: Number(draft.maxParticipants), estimatedCost: Number(draft.estimatedCost), plan: ['Đón khách và xác nhận đăng ký', 'Trải nghiệm theo chương trình', 'Tổng kết và đánh giá'] } }) });
     await load(); setDraft(emptyDraft()); setSuccess('Đã gửi sự kiện cho staff. Sau khi được duyệt, bài sẽ xuất hiện trong app.');
-  }); };
-  const decide = (kind, row, status) => void run(async () => { if (status === 'rejected' && !notes[row.id]?.trim()) throw Error('Nhập lý do từ chối để doanh nghiệp có thể cập nhật.'); await api(`/portal/${kind}/${row.id}`, { method: 'PATCH', body: JSON.stringify({ status, reviewNote: notes[row.id] || '' }) }); await load(); setSuccess(status === 'approved' ? 'Đã duyệt thành công.' : 'Đã gửi lý do từ chối.'); });
-  const download = row => void run(async () => { const response = await fetch(`${apiBaseUrl}/portal/applications/${row.id}/document`, { headers: { Authorization: 'Bearer ' + getSession().accessToken } }); if (!response.ok) throw Error('Không tải được hồ sơ'); const url = URL.createObjectURL(await response.blob()); const anchor = window.document.createElement('a'); anchor.href = url; anchor.download = 'ho-so-doanh-nghiep'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); });
+    });
+  };
+  const decide = (kind, row, status) => {
+    const reviewNote = notes[row.id] || '';
+    if (status === 'rejected' && !reviewNote.trim()) { setError('Nhập lý do từ chối để doanh nghiệp có thể cập nhật.'); return; }
+    if (mockMode) {
+      const key = kind === 'applications' ? 'applications' : 'posts';
+      setData(current => ({ ...current, [key]: current[key].map(item => item.id === row.id ? { ...item, status, reviewNote } : item) }));
+      setSuccess(status === 'approved' ? 'Đã duyệt thành công.' : 'Đã gửi lý do từ chối.');
+      return;
+    }
+    void run(async () => { await api(`/portal/${kind}/${row.id}`, { method: 'PATCH', body: JSON.stringify({ status, reviewNote }) }); await load(); setSuccess(status === 'approved' ? 'Đã duyệt thành công.' : 'Đã gửi lý do từ chối.'); });
+  };
+  const download = row => {
+    if (mockMode) { setSuccess(`Hồ sơ demo của ${row.company} đã sẵn sàng.`); return; }
+    void run(async () => { const response = await fetch(`${apiBaseUrl}/portal/applications/${row.id}/document`, { headers: { Authorization: 'Bearer ' + getSession().accessToken } }); if (!response.ok) throw Error('Không tải được hồ sơ'); const url = URL.createObjectURL(await response.blob()); const anchor = window.document.createElement('a'); anchor.href = url; anchor.download = 'ho-so-doanh-nghiep'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); });
+  };
   const patch = key => event => setDraft(value => ({ ...value, [key]: event.target.value }));
   const alerts = <>{error && <div role="alert" className="gm-form-error">{error}</div>}{success && <div role="status" className="gm-live-success"><Icon name="check" />{success}</div>}</>;
-  if (!getSession() || !me) return <div className="gomate-portal gm-connected"><AuthShell asideTitle="Kết nối doanh nghiệp với cộng đồng." asideText="Tạo sự kiện, chia sẻ ưu đãi và cùng GoMate mang đến những trải nghiệm đáng nhớ."><div className="gm-auth-panel"><Logo /><div className="gm-auth-heading"><span className="gm-eyebrow">GOMATE PARTNERS</span><h2>Đăng nhập portal</h2><p>Dùng tài khoản GoMate của bạn. Vai trò được xác nhận từ hệ thống.</p></div><form className="gm-auth-form" onSubmit={signIn}><Field label="Email"><input className={fieldStyle} type="email" autoComplete="username" required value={email} onChange={event => setEmail(event.target.value)} /></Field><Field label="Mật khẩu"><input className={fieldStyle} type="password" autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} /></Field>{alerts}<PillButton type="submit" disabled={busy}>Đăng nhập</PillButton></form><div className="gm-live-links"><a href="/demo">Bộ demo nhiều tài khoản</a><a href="/#/auth/signup">Đăng ký tài khoản GoMate</a><a href="/">Mở app</a></div></div></AuthShell></div>;
+  if (mockMode && me) {
+    const dashboard = me.role === 'admin'
+      ? <AdminDashboard onNavigate={() => {}} onLogout={logoutMock} applications={mockPortalState.applications} onDecideBusiness={decideMockBusiness} />
+      : me.role === 'staff'
+        ? <StaffDashboard onNavigate={() => {}} onLogout={logoutMock} />
+        : <BusinessDashboard onNavigate={() => {}} onLogout={logoutMock} user={me} applications={mockPortalState.applications} />;
+    return <div className="gomate-portal gm-connected">{dashboard}</div>;
+  }
+  if (!me) {
+    const registeredAccounts = Object.values(mockPortalState.accounts).filter(account => !mockAccounts.some(mockAccount => mockAccount.email === account.email));
+    return <PortalLoginPage onLogin={handleMockLogin} onRegister={handleMockRegister} accounts={[...mockAccounts, ...registeredAccounts]} />;
+  }
   const business = me.role === 'business', reviewing = ['staff', 'admin'].includes(me.role);
   const navigation = business ? [['overview', 'Tổng quan', 'grid'], ['studio', 'Tạo sự kiện', 'edit'], ['posts', 'Bài đăng của tôi', 'activity']] : reviewing ? [['overview', 'Tổng quan', 'grid'], ['businesses', 'Hồ sơ doanh nghiệp', 'shield'], ['posts', 'Duyệt bài đăng', 'edit'], ...(me.role === 'admin' ? [['users', 'Tài khoản', 'users']] : [])] : [['overview', 'Xác minh doanh nghiệp', 'shield']];
   return <div className="gomate-portal gm-connected"><div className="gm-dashboard"><aside className="gm-sidebar"><div className="gm-sidebar-brand"><Logo /></div><div className="gm-sidebar-role">{business ? 'Doanh nghiệp' : reviewing ? 'Kiểm duyệt GoMate' : 'Đăng ký đối tác'}</div><nav className="gm-sidebar-nav">{navigation.map(([id, label, icon]) => <button key={id} type="button" onClick={() => setSection(id)} className={`gm-nav-item ${section === id ? 'is-active' : ''}`}><Icon name={icon} />{label}</button>)}</nav><div className="gm-sidebar-bottom"><a href="/demo" className="gm-nav-item">Hướng dẫn demo</a><a href="/" className="gm-nav-item">Mở app GoMate ↗</a><button className="gm-nav-item" onClick={() => void run(async () => { await logout(); setMe(null); })}><Icon name="logout" />Đăng xuất</button></div></aside><main className="gm-main"><header className="gm-topbar"><Logo compact /><div><strong>{me.application?.company || me.name}</strong><p className="gm-live-muted">{business ? 'Doanh nghiệp đã xác minh' : me.role}</p></div><PillButton variant="secondary" disabled={busy} onClick={() => void run(load)}>Làm mới</PillButton></header><div className="gm-page-content"><div className="gm-page-intro"><div><span className="gm-eyebrow">GOMATE WORKSPACE</span><h2>{navigation.find(([id]) => id === section)?.[1] || 'Tổng quan'}</h2><p>{business ? 'Sự kiện thật, ưu đãi rõ ràng, kết nối cộng đồng.' : reviewing ? 'Kiểm tra hồ sơ và sự kiện trước khi hiển thị trên app.' : 'Xác minh để trở thành đơn vị tổ chức trên GoMate.'}</p></div></div>{alerts}

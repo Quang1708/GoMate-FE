@@ -13,6 +13,44 @@ const demoUsers = {
   admin: { email: 'admin@gomate.app', password: 'admin123', name: 'Jordan Lee' },
 };
 
+const portalStorageKey = 'gomate-portal.mock-state.v1';
+
+const initialBusinessApplications = [
+  { id: 'seed-moss-morning', company: 'Moss & Morning', category: 'Local retail', taxId: '0318842201', address: '42 Nguyen Hue, District 1, Ho Chi Minh City', contact: '+84 90 123 4567', email: 'hello@mossmorning.vn', status: 'pending', submittedAt: '12 min ago', userEmail: null },
+  { id: 'seed-harbor-pilates', company: 'Harbor Pilates', category: 'Wellness studio', taxId: '0317748820', address: '18 Tran Phu, Hai Chau, Da Nang', contact: '+84 91 234 5678', email: 'team@harborpilates.vn', status: 'pending', submittedAt: '1 hr ago', userEmail: null },
+];
+
+function createInitialPortalState() {
+  const accounts = Object.fromEntries(Object.entries(demoUsers).map(([role, account]) => [account.email, {
+    id: `${role}-001`, role, ...account, isApproved: role !== 'business', businessProfile: null,
+  }]));
+  return { accounts, applications: initialBusinessApplications, sessionEmail: null };
+}
+
+function loadPortalState() {
+  if (typeof window === 'undefined') return createInitialPortalState();
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(portalStorageKey) || 'null');
+    if (!saved || typeof saved !== 'object') return createInitialPortalState();
+    const initial = createInitialPortalState();
+    return {
+      accounts: { ...initial.accounts, ...(saved.accounts || {}) },
+      applications: Array.isArray(saved.applications) ? saved.applications : initial.applications,
+      sessionEmail: typeof saved.sessionEmail === 'string' ? saved.sessionEmail : null,
+    };
+  } catch {
+    return createInitialPortalState();
+  }
+}
+
+function getSessionUser(account) {
+  if (!account) return null;
+  return {
+    id: account.id, role: account.role, name: account.name, email: account.email,
+    isApproved: account.isApproved, businessProfile: account.businessProfile || null,
+  };
+}
+
 const routeForRole = (role) => `/${role}`;
 
 function usePortalRouter() {
@@ -35,15 +73,16 @@ function usePortalRouter() {
   return { path, navigate };
 }
 
-function mockLogin({ email, password, role }) {
+function mockLogin({ email, password, role }, accounts = createInitialPortalState().accounts) {
   return new Promise((resolve, reject) => {
     window.setTimeout(() => {
-      const expected = demoUsers[role];
-      if (!expected || (email && email !== expected.email) || password !== expected.password) {
-        reject(new Error(`Use the ${roleLabels[role].toLowerCase()} demo credentials to continue.`));
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const account = Object.values(accounts).find((candidate) => candidate.email.toLowerCase() === normalizedEmail && candidate.role === role);
+      if (!account || account.password !== password) {
+        reject(new Error(`The email or password is not valid for the ${roleLabels[role]?.toLowerCase() || 'selected'} workspace.`));
         return;
       }
-      resolve({ id: `${role}-001`, role, name: expected.name, email: expected.email });
+      resolve(getSessionUser(account));
     }, 450);
   });
 }
@@ -150,12 +189,13 @@ function AuthShell({ children, asideTitle, asideText }) {
   );
 }
 
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, onRegister, accounts }) {
   const [role, setRole] = useState('business');
   const [email, setEmail] = useState(demoUsers.business.email);
   const [password, setPassword] = useState(demoUsers.business.password);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [language, setLanguage] = useState('en');
   const [error, setError] = useState('');
@@ -271,7 +311,7 @@ function LoginPage({ onLogin }) {
     setError('');
     setIsLoading(true);
     try {
-      const user = await mockLogin({ email, password, role });
+      const user = await mockLogin({ email, password, role }, accounts);
       onLogin(user);
     } catch (loginError) {
       setError(loginError.message);
@@ -280,14 +320,26 @@ function LoginPage({ onLogin }) {
     }
   };
 
-  const submitRegistration = (event) => {
+  const submitRegistration = async (event) => {
     event.preventDefault();
+    if (!['business', 'staff'].includes(role)) {
+      setRegistrationError('Admin accounts are configured by GoMate and cannot be created here.');
+      return;
+    }
     if (!registrationForm.terms) {
       setRegistrationError(copy.registrationError);
       return;
     }
     setRegistrationError('');
-    setRegistrationSubmitted(true);
+    setIsRegistering(true);
+    try {
+      await onRegister({ ...registrationForm, role, email: registrationForm.email.trim().toLowerCase() });
+      setRegistrationSubmitted(true);
+    } catch (registerError) {
+      setRegistrationError(registerError.message || 'Unable to create this account.');
+    } finally {
+      setIsRegistering(false);
+    }
   };
 
   return (
@@ -349,7 +401,7 @@ function LoginPage({ onLogin }) {
                 <label className="gm-field"><span>{copy.registrationPassword}</span><div className="gm-input-wrap"><Icon name="shield" size={17} /><input value={registrationForm.password} onChange={updateRegistrationField('password')} type="password" autoComplete="new-password" minLength={8} required /></div></label>
                 <label className="gm-checkbox gm-checkbox--terms"><input type="checkbox" checked={registrationForm.terms} onChange={updateRegistrationField('terms')} /><span>{copy.agree}</span></label>
                 {registrationError && <div className="gm-form-error" role="alert"><Icon name="close" size={14} />{registrationError}</div>}
-                <PillButton type="submit" icon="arrow" className="gm-btn--wide">{copy.submitRegistration}</PillButton>
+                <PillButton type="submit" icon="arrow" disabled={isRegistering} className="gm-btn--wide">{isRegistering ? 'Creating account...' : copy.submitRegistration}</PillButton>
               </form>}
             </>}
           </div>
@@ -360,31 +412,42 @@ function LoginPage({ onLogin }) {
 }
 
 function RegistrationPage({ onBack, onComplete }) {
-  const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({ company: '', email: '', website: '', category: 'Community & events' });
-  const [fileName, setFileName] = useState('');
+  const [role, setRole] = useState('business');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({ name: '', email: '', password: '', website: '', category: 'Community & events' });
   const updateField = (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.value }));
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
-    setSubmitted(true);
-    window.setTimeout(onComplete, 800);
+    setError('');
+    setSubmitting(true);
+    try {
+      await onComplete({ ...form, role, email: form.email.trim().toLowerCase() });
+    } catch (registrationError) {
+      setError(registrationError.message || 'Unable to create this account.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <AuthShell asideTitle="Turn your space into a shared story." asideText="Verify your business once, then build meaningful moments with the people who matter.">
+    <AuthShell asideTitle="Find your place in the GoMate community." asideText="Create a staff or business account and get started in the right workspace.">
       <div className="gm-auth-panel gm-register-panel">
         <div className="gm-auth-mobile-logo"><Logo /></div>
         <button type="button" className="gm-back-link" onClick={onBack}><Icon name="arrow" size={15} /> Back to sign in</button>
-        <div className="gm-auth-heading"><span className="gm-eyebrow">Business registration</span><h2>Create your GoMate space</h2><p>Tell us a little about your business. Verification usually takes one working day.</p></div>
-        {submitted ? <div className="gm-success-state"><span className="gm-success-icon"><Icon name="check" size={24} /></span><h3>Application received</h3><p>We will review your documents and email you when your GoMate space is ready.</p></div> : <form className="gm-auth-form" onSubmit={submit}>
-          <div className="gm-field-grid"><label className="gm-field"><span>Business name</span><div className="gm-input-wrap"><Icon name="grid" size={17} /><input value={form.company} onChange={updateField('company')} placeholder="e.g. Luma Social Club" required /></div></label><label className="gm-field"><span>Category</span><div className="gm-input-wrap"><Icon name="activity" size={17} /><select value={form.category} onChange={updateField('category')}><option>Community & events</option><option>Retail & lifestyle</option><option>Food & hospitality</option><option>Education</option></select></div></label></div>
-          <label className="gm-field"><span>Work email</span><div className="gm-input-wrap"><Icon name="users" size={17} /><input value={form.email} onChange={updateField('email')} type="email" placeholder="you@business.com" required /></div></label>
-          <label className="gm-field"><span>Website <em>Optional</em></span><div className="gm-input-wrap"><Icon name="external" size={17} /><input value={form.website} onChange={updateField('website')} type="url" placeholder="https://" /></div></label>
-          <label className="gm-upload-field"><span>Verification document</span><input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(event) => setFileName(event.target.files?.[0]?.name || '')} required /><span className="gm-upload-box"><span className="gm-upload-icon"><Icon name="upload" size={18} /></span><strong>{fileName || 'Upload a registration document'}</strong><small>PDF, JPG or PNG up to 10 MB</small></span></label>
-          <label className="gm-checkbox gm-checkbox--terms"><input type="checkbox" required /><span>I agree to the GoMate business terms and privacy policy.</span></label>
-          <PillButton type="submit" icon="arrow" className="gm-btn--wide">Submit for verification</PillButton>
-        </form>}
-        {!submitted && <p className="gm-auth-switch">Already have a business account? <button type="button" className="gm-link-button" onClick={onBack}>Sign in</button></p>}
+        <div className="gm-auth-heading"><span className="gm-eyebrow">Join GoMate</span><h2>Create your account</h2><p>Choose an account type. Admin access is configured separately.</p></div>
+        <form className="gm-auth-form" onSubmit={submit}>
+          <label className="gm-field"><span>Account type</span><div className="gm-input-wrap"><Icon name={role === 'business' ? 'grid' : 'users'} size={17} /><select value={role} onChange={(event) => setRole(event.target.value)}><option value="business">Business</option><option value="staff">Staff</option></select></div></label>
+          {role === 'business' && <label className="gm-field"><span>Business name</span><div className="gm-input-wrap"><Icon name="grid" size={17} /><input value={form.name} onChange={updateField('name')} placeholder="e.g. Luma Social Club" required /></div></label>}
+          {role === 'staff' && <label className="gm-field"><span>Full name</span><div className="gm-input-wrap"><Icon name="users" size={17} /><input value={form.name} onChange={updateField('name')} placeholder="e.g. Alex Morgan" required /></div></label>}
+          <label className="gm-field"><span>Email</span><div className="gm-input-wrap"><Icon name="users" size={17} /><input value={form.email} onChange={updateField('email')} type="email" autoComplete="email" required /></div></label>
+          {role === 'business' && <div className="gm-field-grid"><label className="gm-field"><span>Category</span><div className="gm-input-wrap"><Icon name="activity" size={17} /><select value={form.category} onChange={updateField('category')}><option>Community & events</option><option>Retail & lifestyle</option><option>Food & hospitality</option><option>Education</option></select></div></label><label className="gm-field"><span>Website <em>Optional</em></span><div className="gm-input-wrap"><Icon name="external" size={17} /><input value={form.website} onChange={updateField('website')} type="url" placeholder="https://" /></div></label></div>}
+          <label className="gm-field"><span>Password</span><div className="gm-input-wrap"><Icon name="shield" size={17} /><input value={form.password} onChange={updateField('password')} type="password" autoComplete="new-password" minLength={8} required /></div></label>
+          <label className="gm-checkbox gm-checkbox--terms"><input type="checkbox" required /><span>I agree to the GoMate terms and privacy policy.</span></label>
+          {error && <div className="gm-form-error" role="alert"><Icon name="close" size={14} />{error}</div>}
+          <PillButton type="submit" icon="arrow" disabled={submitting} className="gm-btn--wide">{submitting ? 'Creating account...' : 'Create account'}</PillButton>
+        </form>
+        <p className="gm-auth-switch">Already have an account? <button type="button" className="gm-link-button" onClick={onBack}>Sign in</button></p>
       </div>
     </AuthShell>
   );
@@ -410,7 +473,22 @@ function DashboardShell({ role, active, title, subtitle, onNavigate, onLogout, c
       document.querySelector('.gm-composer-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
-  return <div className={`gm-dashboard ${menuOpen ? 'gm-dashboard--menu-open' : ''}`}><Sidebar role={role} active={currentActive} onNavigate={handleNavigate} onLogout={onLogout} /><div className="gm-main"><Topbar role={role} title={title} onMobileMenu={() => setMenuOpen((value) => !value)} /><div className="gm-page-content"><div className="gm-page-intro"><div><span className="gm-eyebrow">{role === 'business' ? 'Tuesday, October 15, 2026' : 'Workspace overview'}</span><h2>{title}</h2><p>{subtitle}</p></div><div className="gm-page-actions">{role === 'business' && <PillButton icon="plus" onClick={() => handleNavigate('studio')}>Create a post</PillButton>}{role === 'staff' && <PillButton variant="secondary" icon="search" onClick={() => handleNavigate('moderation')}>Review queue</PillButton>}{role === 'admin' && <PillButton icon="external" onClick={() => handleNavigate('users')}>Export report</PillButton>}</div></div>{children}</div></div></div>;
+  return (
+    <div className={`gm-dashboard ${menuOpen ? 'gm-dashboard--menu-open' : ''}`}>
+      <Sidebar role={role} active={currentActive} onNavigate={handleNavigate} onLogout={onLogout} />
+      <div className="gm-main">
+        <Topbar role={role} title={title} onMobileMenu={() => setMenuOpen((value) => !value)} />
+        <div className="gm-page-content">
+          <div className="gm-page-intro">
+            <div><span className="gm-eyebrow">{role === 'business' ? 'Tuesday, October 15, 2026' : 'Workspace overview'}</span><h2>{title}</h2><p>{subtitle}</p></div>
+            <div className="gm-page-actions">{role === 'business' && <PillButton icon="plus" onClick={() => handleNavigate('studio')}>Create a post</PillButton>}{role === 'staff' && <PillButton variant="secondary" icon="search" onClick={() => handleNavigate('moderation')}>Review queue</PillButton>}{role === 'admin' && <PillButton icon="external" onClick={() => handleNavigate('users')}>Export report</PillButton>}</div>
+          </div>
+          {children}
+          {role === 'business' && <CommunityChat />}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function MetricCard({ label, value, change, helper, icon, tone = 'purple' }) {
@@ -423,7 +501,36 @@ const initialBusinessPosts = [
   { id: 3, title: 'A little thank you to our members', excerpt: 'A private early-access drop is waiting inside the Luma community.', status: 'Rejected', date: 'Oct 08, 2026', reach: 'Needs edit', tone: 'red', accent: 'rose' },
 ];
 
-function BusinessDashboard({ onNavigate, onLogout }) {
+function BusinessPendingState({ application, onLogout }) {
+  const rejected = application?.status === 'rejected';
+  return <main className="min-h-screen bg-slate-50 px-5 py-8 sm:px-10">
+    <header className="mx-auto flex max-w-5xl items-center justify-between"><Logo /><button type="button" onClick={onLogout} className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Sign out</button></header>
+    <section className="mx-auto mt-16 max-w-xl rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${rejected ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{rejected ? 'Changes requested' : 'Pending review'}</span>
+      <h1 className="mt-5 text-2xl font-semibold text-slate-900">{rejected ? 'Your application needs an update' : 'Your business application is under review'}</h1>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{rejected ? (application.reviewNote || 'Please contact GoMate support for help updating your application.') : 'Your registration details were submitted. Business tools will unlock after Admin approval.'}</p>
+      {application?.company && <p className="mt-5 border-t border-slate-100 pt-4 text-sm font-medium text-slate-800">{application.company}</p>}
+    </section>
+  </main>;
+}
+
+function CommunityChat() {
+  const [messages, setMessages] = useState([
+    { id: 1, initials: 'NT', name: 'Nhi Tran', time: '10:24 AM', text: 'Anyone joining the Saturday neighborhood walk?' },
+    { id: 2, initials: 'MK', name: 'Minh Khoa', time: '10:27 AM', text: 'Count me in. I can bring a few friends from the club.' },
+    { id: 3, initials: 'LS', name: 'Luma Social Club', time: '10:31 AM', text: 'We will share the route and meeting point this afternoon.' },
+  ]);
+  const [draft, setDraft] = useState('');
+  const sendMessage = (event) => {
+    event.preventDefault();
+    if (!draft.trim()) return;
+    setMessages((current) => [...current, { id: Date.now(), initials: 'LS', name: 'Luma Social Club', time: 'Just now', text: draft.trim() }]);
+    setDraft('');
+  };
+  return <section className="gm-panel gm-community-chat"><div className="gm-panel-heading"><div><span className="gm-eyebrow">Community</span><h3>Chat cộng đồng</h3></div><StatusPill tone="green">12 online</StatusPill></div><div className="gm-chat-messages" aria-live="polite">{messages.map((message) => <article className="gm-chat-message" key={message.id}><Avatar initials={message.initials} tone={message.initials === 'LS' ? 'purple' : 'blue'} size="sm" /><div><div className="gm-chat-message-meta"><strong>{message.name}</strong><span>{message.time}</span></div><p>{message.text}</p></div></article>)}</div><form className="gm-chat-compose" onSubmit={sendMessage}><input aria-label="Message community chat" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Write a message to your community..." /><PillButton type="submit" icon="arrow">Send</PillButton></form></section>;
+}
+
+function BusinessDashboard({ onNavigate, onLogout, user, applications = [] }) {
   const [posts, setPosts] = useState(initialBusinessPosts);
   const [draft, setDraft] = useState({ title: '', copy: '', badge: 'Member favorite', discount: '20% off', premium: true, border: 'Glow' });
   const [toast, setToast] = useState('');
@@ -436,6 +543,9 @@ function BusinessDashboard({ onNavigate, onLogout }) {
     setToast('Your post is in the moderation queue.');
     window.setTimeout(() => setToast(''), 3200);
   };
+
+  const application = applications.find((item) => item.userEmail === user.email);
+  if (!user.isApproved) return <BusinessPendingState application={application || user.businessProfile} onLogout={onLogout} />;
 
   return <DashboardShell role="business" active="overview" title="Good morning, Luma" subtitle="Here is how your GoMate community is moving today." onNavigate={onNavigate} onLogout={onLogout}><div className="gm-metric-grid"><MetricCard label="Total posts" value="48" change="+12.5%" helper="vs. last month" icon="edit" tone="purple" /><MetricCard label="Participants" value="8,420" change="+18.2%" helper="active this month" icon="users" tone="blue" /><MetricCard label="Engagement" value="72.8%" change="+6.4%" helper="average rate" icon="activity" tone="mint" /><MetricCard label="GoMate Plus" value="$1,240" change="+22.1%" helper="revenue this month" icon="wallet" tone="orange" /></div><div className="gm-business-grid"><section className="gm-panel gm-composer-panel"><div className="gm-panel-heading"><div><span className="gm-eyebrow">Post studio</span><h3>Create a post</h3></div><span className="gm-live-pill"><span />Live preview</span></div><form className="gm-composer-form" onSubmit={publishPost}><label className="gm-field"><span>Post title</span><input className="gm-simple-input" value={draft.title} onChange={(event) => setDraft((value) => ({ ...value, title: event.target.value }))} placeholder="Give your post a clear, inviting title" /></label><label className="gm-field"><span>Your message</span><textarea className="gm-simple-input gm-textarea" value={draft.copy} onChange={(event) => setDraft((value) => ({ ...value, copy: event.target.value }))} placeholder="What would you like to share with your community?" rows={4} /></label><div className="gm-composer-options"><label className="gm-field gm-field--small"><span>Badge</span><select className="gm-simple-input" value={draft.badge} onChange={(event) => setDraft((value) => ({ ...value, badge: event.target.value }))}><option>Member favorite</option><option>New</option><option>Limited</option><option>Community pick</option></select></label><label className="gm-field gm-field--small"><span>Discount tag</span><select className="gm-simple-input" value={draft.discount} onChange={(event) => setDraft((value) => ({ ...value, discount: event.target.value }))}><option>20% off</option><option>15% off</option><option>Free entry</option><option>None</option></select></label><label className="gm-field gm-field--small"><span>Border</span><select className="gm-simple-input" value={draft.border} onChange={(event) => setDraft((value) => ({ ...value, border: event.target.value }))}><option>Glow</option><option>Soft</option><option>Solid</option></select></label></div><div className="gm-premium-toggle"><span className="gm-premium-spark"><Icon name="activity" size={15} /></span><span><strong>Premium styling</strong><small>Badge, custom border, and discount tag</small></span><button type="button" className={`gm-toggle ${draft.premium ? 'is-on' : ''}`} aria-pressed={draft.premium} onClick={() => setDraft((value) => ({ ...value, premium: !value.premium }))}><span /></button></div><PillButton type="submit" icon="arrow" className="gm-btn--wide">Send for approval</PillButton></form></section><section className="gm-panel gm-preview-panel"><div className="gm-panel-heading"><div><span className="gm-eyebrow">Preview</span><h3>How it will look</h3></div><button type="button" className="gm-icon-btn"><Icon name="dots" size={17} /></button></div><div className={`gm-preview-card gm-preview-card--${draft.border.toLowerCase()}`}><div className="gm-preview-top"><span className="gm-preview-badge"><Icon name="activity" size={12} />{draft.premium ? draft.badge : 'Community update'}</span><span className="gm-preview-menu"><Icon name="dots" size={16} /></span></div><div className="gm-preview-art"><span className="gm-preview-art-orbit orbit-a" /><span className="gm-preview-art-orbit orbit-b" /><span className="gm-preview-art-center"><Icon name="users" size={28} /></span><span className="gm-preview-discount">{draft.premium ? draft.discount : 'GoMate'}</span></div><div className="gm-preview-copy"><h4>{draft.title || 'Your post title appears here'}</h4><p>{draft.copy || 'Add a thoughtful message to make your community feel invited.'}</p></div><div className="gm-preview-footer"><span><Avatar initials="LS" tone="purple" size="xs" />Luma Social Club</span><span>Just now</span></div></div><div className="gm-preview-note"><Icon name="shield" size={15} /><span>Premium posts get a visual boost in the discovery feed.</span></div></section></div><section className="gm-panel gm-posts-panel"><div className="gm-panel-heading"><div><span className="gm-eyebrow">Content library</span><h3>Recent posts</h3></div><button type="button" className="gm-text-action" onClick={() => onNavigate('studio')}>View all <Icon name="arrow" size={14} /></button></div><div className="gm-table-wrap"><table className="gm-table"><thead><tr><th>Post</th><th>Status</th><th>Published</th><th>Reach</th><th /></tr></thead><tbody>{posts.map((post) => <tr key={post.id}><td><div className="gm-post-cell"><span className={`gm-post-thumb gm-post-thumb--${post.accent}`}><Icon name="activity" size={15} /></span><span><strong>{post.title}</strong><small>{post.excerpt}</small></span></div></td><td><StatusPill tone={post.tone}>{post.status}</StatusPill></td><td>{post.date}</td><td>{post.reach}</td><td><button type="button" className="gm-icon-btn"><Icon name="dots" size={17} /></button></td></tr>)}</tbody></table></div></section>{toast && <div className="gm-toast"><span><Icon name="check" size={16} /></span>{toast}</div>}</DashboardShell>;
 }
@@ -463,35 +573,81 @@ function StaffDashboard({ onNavigate, onLogout }) {
 
 const users = [{ initials: 'TK', name: 'Taylor Kim', email: 'taylor.kim@email.com', joined: 'Oct 12, 2026', plan: 'GoMate Plus', status: 'Active', tone: 'pink' }, { initials: 'DO', name: 'Diego Ortega', email: 'diego.o@email.com', joined: 'Oct 10, 2026', plan: 'Free', status: 'Active', tone: 'blue' }, { initials: 'AS', name: 'Avery Singh', email: 'avery.s@email.com', joined: 'Oct 09, 2026', plan: 'GoMate Plus', status: 'Active', tone: 'mint' }, { initials: 'MJ', name: 'Maya Jones', email: 'maya.j@email.com', joined: 'Oct 08, 2026', plan: 'GoMate Plus', status: 'Paused', tone: 'orange' }];
 
-function AdminDashboard({ onNavigate, onLogout }) {
-  const [businesses, setBusinesses] = useState([{ initials: 'MM', name: 'Moss & Morning', type: 'Local retail', submitted: '12 min ago', tone: 'mint' }, { initials: 'HP', name: 'Harbor Pilates', type: 'Wellness studio', submitted: '1 hr ago', tone: 'purple' }]);
-  const [businessActions, setBusinessActions] = useState({});
+function AdminDashboard({ onNavigate, onLogout, applications, onDecideBusiness }) {
   const [selectedUser, setSelectedUser] = useState(null);
-  const decideBusiness = (index, action) => { setBusinessActions((current) => ({ ...current, [index]: action })); window.setTimeout(() => setBusinesses((current) => current.filter((_, businessIndex) => businessIndex !== index)), 500); };
-  return <DashboardShell role="admin" active="overview" title="Good morning, Jordan" subtitle="A clear view of GoMate health, growth, and trust." onNavigate={onNavigate} onLogout={onLogout}><div className="gm-metric-grid gm-metric-grid--admin"><MetricCard label="Active users" value="128,420" change="+8.6%" helper="this month" icon="users" tone="purple" /><MetricCard label="Verified businesses" value="2,846" change="+14.2%" helper="all time" icon="shield" tone="mint" /><MetricCard label="GoMate Plus revenue" value="$84,320" change="+21.4%" helper="this month" icon="wallet" tone="orange" /><MetricCard label="Trust score" value="96.8%" change="+1.8%" helper="community health" icon="activity" tone="blue" /></div><div className="gm-admin-overview-grid"><section className="gm-panel gm-revenue-panel"><div className="gm-panel-heading"><div><span className="gm-eyebrow">Performance</span><h3>Revenue overview</h3></div><select className="gm-period-select" defaultValue="30"><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></div><div className="gm-revenue-summary"><div><strong>$84,320</strong><span><em>+21.4%</em> vs. previous period</span></div><div className="gm-legend"><span><i className="gm-legend-dot gm-legend-dot--primary" />GoMate Plus</span><span><i className="gm-legend-dot gm-legend-dot--soft" />Promoted posts</span></div></div><div className="gm-chart"><div className="gm-chart-y"><span>$100k</span><span>$75k</span><span>$50k</span><span>$25k</span><span>$0</span></div><div className="gm-chart-area"><div className="gm-chart-gridlines"><i /><i /><i /><i /><i /></div><div className="gm-chart-bars">{[52, 58, 50, 64, 71, 66, 76, 72, 80, 86, 82, 93].map((height, index) => <div className="gm-chart-bar-group" key={index}><span className="gm-chart-bar gm-chart-bar--primary" style={{ height: `${height}%` }} /><span className="gm-chart-bar gm-chart-bar--soft" style={{ height: `${Math.max(height - 27, 12)}%` }} /><small>{['Sep 19', '', 'Sep 25', '', 'Oct 1', '', 'Oct 7', '', 'Oct 11', '', 'Oct 14', ''][index]}</small></div>)}</div></div></div></section><section className="gm-panel gm-business-review-panel"><div className="gm-panel-heading"><div><span className="gm-eyebrow">Trust & safety</span><h3>Business review</h3></div><span className="gm-review-count">{businesses.length} waiting</span></div>{businesses.length === 0 ? <div className="gm-empty-state gm-empty-state--small"><span><Icon name="check" size={22} /></span><h4>Nothing waiting</h4><p>New business applications will appear here.</p></div> : <div className="gm-business-review-list">{businesses.map((business, index) => <article className="gm-business-review-item" key={business.name}><Avatar initials={business.initials} tone={business.tone} size="sm" /><div><strong>{business.name}</strong><span>{business.type} / {business.submitted}</span></div>{businessActions[index] ? <StatusPill tone={businessActions[index] === 'Approved' ? 'green' : 'red'}>{businessActions[index]}</StatusPill> : <div className="gm-business-review-actions"><button type="button" className="gm-icon-btn gm-icon-btn--success" onClick={() => decideBusiness(index, 'Approved')} aria-label={`Approve ${business.name}`}><Icon name="check" size={15} /></button><button type="button" className="gm-icon-btn gm-icon-btn--danger" onClick={() => decideBusiness(index, 'Rejected')} aria-label={`Reject ${business.name}`}><Icon name="close" size={15} /></button></div>}</article>)}</div>}<button type="button" className="gm-panel-link">Open business management <Icon name="arrow" size={14} /></button></section></div><section className="gm-panel gm-users-panel"><div className="gm-panel-heading"><div><span className="gm-eyebrow">People & plans</span><h3>User and subscription management</h3></div><div className="gm-table-actions"><label className="gm-table-search"><Icon name="search" size={15} /><input placeholder="Search users" /></label><button type="button" className="gm-icon-btn"><Icon name="dots" size={17} /></button></div></div><div className="gm-table-wrap"><table className="gm-table gm-users-table"><thead><tr><th>User</th><th>Joined</th><th>Plan</th><th>Status</th><th /></tr></thead><tbody>{users.map((user) => <tr key={user.email}><td><div className="gm-post-cell"><Avatar initials={user.initials} tone={user.tone} size="sm" /><span><strong>{user.name}</strong><small>{user.email}</small></span></div></td><td>{user.joined}</td><td><span className={`gm-plan ${user.plan === 'GoMate Plus' ? 'gm-plan--plus' : ''}`}>{user.plan === 'GoMate Plus' && <Icon name="activity" size={12} />}{user.plan}</span></td><td><StatusPill tone={user.status === 'Active' ? 'green' : 'orange'}>{user.status}</StatusPill></td><td><button type="button" className="gm-icon-btn" onClick={() => setSelectedUser(user)}><Icon name="dots" size={17} /></button></td></tr>)}</tbody></table></div></section>{selectedUser && <div className="gm-modal-backdrop" onClick={() => setSelectedUser(null)}><div className="gm-user-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><div className="gm-modal-head"><div><span className="gm-eyebrow">User profile</span><h3>{selectedUser.name}</h3></div><button type="button" className="gm-icon-btn" onClick={() => setSelectedUser(null)}><Icon name="close" size={17} /></button></div><div className="gm-modal-user"><Avatar initials={selectedUser.initials} tone={selectedUser.tone} size="lg" /><div><strong>{selectedUser.email}</strong><span>Joined {selectedUser.joined}</span></div></div><div className="gm-modal-stats"><div><span>Plan</span><strong>{selectedUser.plan}</strong></div><div><span>Status</span><strong>{selectedUser.status}</strong></div><div><span>Reports</span><strong>0</strong></div></div><PillButton variant="secondary" className="gm-btn--wide" onClick={() => setSelectedUser(null)}>Close profile</PillButton></div></div>}</DashboardShell>;
+  const [reviewNotes, setReviewNotes] = useState({});
+  const businesses = applications.filter((application) => application.status === 'pending');
+  const initials = (name) => name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+
+  return <DashboardShell role="admin" active="overview" title="Good morning, Jordan" subtitle="A clear view of GoMate health, growth, and trust." onNavigate={onNavigate} onLogout={onLogout}>
+    <div className="gm-metric-grid gm-metric-grid--admin"><MetricCard label="Active users" value="128,420" change="+8.6%" helper="this month" icon="users" tone="purple" /><MetricCard label="Verified businesses" value="2,846" change="+14.2%" helper="all time" icon="shield" tone="mint" /><MetricCard label="Pending applications" value={businesses.length} change="Needs review" helper="business verification" icon="grid" tone="orange" /><MetricCard label="Trust score" value="96.8%" change="+1.8%" helper="community health" icon="activity" tone="blue" /></div>
+    <div className="gm-admin-overview-grid">
+      <section className="gm-panel gm-revenue-panel"><div className="gm-panel-heading"><div><span className="gm-eyebrow">Performance</span><h3>Revenue overview</h3></div><select className="gm-period-select" defaultValue="30"><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></div><div className="gm-revenue-summary"><div><strong>$84,320</strong><span><em>+21.4%</em> vs. previous period</span></div><div className="gm-legend"><span><i className="gm-legend-dot gm-legend-dot--primary" />GoMate Plus</span><span><i className="gm-legend-dot gm-legend-dot--soft" />Promoted posts</span></div></div><div className="gm-chart"><div className="gm-chart-y"><span>$100k</span><span>$75k</span><span>$50k</span><span>$25k</span><span>$0</span></div><div className="gm-chart-area"><div className="gm-chart-gridlines"><i /><i /><i /><i /><i /></div><div className="gm-chart-bars">{[52, 58, 50, 64, 71, 66, 76, 72, 80, 86, 82, 93].map((height, index) => <div className="gm-chart-bar-group" key={index}><span className="gm-chart-bar gm-chart-bar--primary" style={{ height: `${height}%` }} /><span className="gm-chart-bar gm-chart-bar--soft" style={{ height: `${Math.max(height - 27, 12)}%` }} /><small>{['Sep 19', '', 'Sep 25', '', 'Oct 1', '', 'Oct 7', '', 'Oct 11', '', 'Oct 14', ''][index]}</small></div>)}</div></div></div></section>
+      <section className="gm-panel gm-business-review-panel"><div className="gm-panel-heading"><div><span className="gm-eyebrow">Trust & safety</span><h3>Pending business registrations</h3></div><span className="gm-review-count">{businesses.length} waiting</span></div>
+        {businesses.length === 0 ? <div className="gm-empty-state gm-empty-state--small"><span><Icon name="check" size={22} /></span><h4>Nothing waiting</h4><p>New business applications will appear here.</p></div> : <div className="gm-business-review-list">{businesses.map((business) => <article className="gm-business-application" key={business.id}><div className="gm-business-application-heading"><Avatar initials={initials(business.company)} tone="mint" size="sm" /><div><strong>{business.company}</strong><span>{business.category} · {business.submittedAt}</span></div></div><dl className="gm-business-application-details"><div><dt>Tax ID</dt><dd>{business.taxId}</dd></div><div><dt>Address</dt><dd>{business.address}</dd></div><div><dt>Contact</dt><dd>{business.contact}</dd></div><div><dt>Account email</dt><dd>{business.email}</dd></div></dl>{business.userEmail && <label className="gm-field"><span>Review note</span><input className="gm-simple-input" value={reviewNotes[business.id] || ''} onChange={(event) => setReviewNotes((current) => ({ ...current, [business.id]: event.target.value }))} placeholder="Optional note for the business" /></label>}<div className="gm-business-review-actions"><PillButton icon="check" onClick={() => onDecideBusiness(business.id, 'approved')}>Approve</PillButton><PillButton icon="close" variant="secondary" onClick={() => onDecideBusiness(business.id, 'rejected', reviewNotes[business.id] || '')}>Reject</PillButton></div></article>)}</div>}
+      </section>
+    </div>
+    <section className="gm-panel gm-users-panel"><div className="gm-panel-heading"><div><span className="gm-eyebrow">People & plans</span><h3>User and subscription management</h3></div><div className="gm-table-actions"><label className="gm-table-search"><Icon name="search" size={15} /><input placeholder="Search users" /></label><button type="button" className="gm-icon-btn"><Icon name="dots" size={17} /></button></div></div><div className="gm-table-wrap"><table className="gm-table gm-users-table"><thead><tr><th>User</th><th>Joined</th><th>Plan</th><th>Status</th><th /></tr></thead><tbody>{users.map((user) => <tr key={user.email}><td><div className="gm-post-cell"><Avatar initials={user.initials} tone={user.tone} size="sm" /><span><strong>{user.name}</strong><small>{user.email}</small></span></div></td><td>{user.joined}</td><td><span className={`gm-plan ${user.plan === 'GoMate Plus' ? 'gm-plan--plus' : ''}`}>{user.plan === 'GoMate Plus' && <Icon name="activity" size={12} />}{user.plan}</span></td><td><StatusPill tone={user.status === 'Active' ? 'green' : 'orange'}>{user.status}</StatusPill></td><td><button type="button" className="gm-icon-btn" onClick={() => setSelectedUser(user)} aria-label={`Open ${user.name} profile`}><Icon name="dots" size={17} /></button></td></tr>)}</tbody></table></div></section>
+    {selectedUser && <div className="gm-modal-backdrop" onClick={() => setSelectedUser(null)}><div className="gm-user-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><div className="gm-modal-head"><div><span className="gm-eyebrow">User profile</span><h3>{selectedUser.name}</h3></div><button type="button" className="gm-icon-btn" onClick={() => setSelectedUser(null)}><Icon name="close" size={17} /></button></div><div className="gm-modal-user"><Avatar initials={selectedUser.initials} tone={selectedUser.tone} size="lg" /><div><strong>{selectedUser.email}</strong><span>Joined {selectedUser.joined}</span></div></div><div className="gm-modal-stats"><div><span>Plan</span><strong>{selectedUser.plan}</strong></div><div><span>Status</span><strong>{selectedUser.status}</strong></div><div><span>Reports</span><strong>0</strong></div></div><PillButton variant="secondary" className="gm-btn--wide" onClick={() => setSelectedUser(null)}>Close profile</PillButton></div></div>}
+  </DashboardShell>;
 }
 
 export function GoMatePortal() {
   const { path, navigate } = usePortalRouter();
-  const [user, setUser] = useState(null);
-
-  const logout = () => { setUser(null); navigate('/login'); };
-  const handleLogin = (nextUser) => { setUser(nextUser); navigate(routeForRole(nextUser.role)); };
+  const [portalState, setPortalState] = useState(loadPortalState);
+  const user = portalState.sessionEmail ? getSessionUser(portalState.accounts[portalState.sessionEmail]) : null;
   const routeRole = path.replace('/', '').split('/')[0];
   const role = ['business', 'staff', 'admin'].includes(routeRole) ? routeRole : null;
 
   useEffect(() => {
-    if (role && (!user || user.role !== role)) navigate('/login');
-  }, [navigate, role, user]);
+    if (typeof window !== 'undefined') window.localStorage.setItem(portalStorageKey, JSON.stringify(portalState));
+  }, [portalState]);
 
-  if (path === '/register') return <div className="gomate-portal"><RegistrationPage onBack={() => navigate('/login')} onComplete={() => navigate('/login')} /></div>;
-  if (role && (!user || user.role !== role)) {
-    return <div className="gomate-portal"><LoginPage onLogin={handleLogin} onRegister={() => navigate('/register')} /></div>;
-  }
+  const logout = () => {
+    setPortalState((current) => ({ ...current, sessionEmail: null }));
+    navigate('/login');
+  };
+  const handleLogin = (nextUser) => {
+    setPortalState((current) => ({ ...current, sessionEmail: nextUser.email }));
+    navigate(routeForRole(nextUser.role));
+  };
+  const handleRegister = async (details) => {
+    const nextRole = details.role;
+    const email = String(details.email || '').trim().toLowerCase();
+    if (!['business', 'staff'].includes(nextRole)) throw new Error('Admin accounts are configured by GoMate and cannot be created here.');
+    if (!email || !details.password || !details.name?.trim()) throw new Error('Complete all required account fields.');
+    if (portalState.accounts[email]) throw new Error('An account with this email already exists.');
+    const account = { id: `user-${Date.now()}`, role: nextRole, name: details.name.trim(), email, password: details.password, isApproved: nextRole === 'staff', businessProfile: nextRole === 'business' ? { website: details.website || '', category: details.category || 'Community & events' } : null };
+    setPortalState((current) => ({ ...current, accounts: { ...current.accounts, [email]: account }, sessionEmail: email }));
+    navigate(routeForRole(nextRole));
+  };
+  const decideBusiness = (id, status, reviewNote = '') => {
+    setPortalState((current) => {
+      const application = current.applications.find((item) => item.id === id);
+      if (!application || application.status !== 'pending') return current;
+      const accounts = application.userEmail ? {
+        ...current.accounts,
+        [application.userEmail]: {
+          ...current.accounts[application.userEmail],
+          isApproved: status === 'approved',
+          businessProfile: { ...application, status, reviewNote },
+        },
+      } : current.accounts;
+      return { ...current, accounts, applications: current.applications.map((item) => item.id === id ? { ...item, status, reviewNote } : item) };
+    });
+  };
+
+  useEffect(() => {
+    if (role && (!user || user.role !== role)) navigate('/login');
+    else if (user && !role && (path === '/login' || path === '/')) navigate(routeForRole(user.role));
+  }, [navigate, path, role, user]);
+
+  if (path === '/register') return <div className="gomate-portal"><RegistrationPage onBack={() => navigate('/login')} onComplete={handleRegister} /></div>;
+  if (role && (!user || user.role !== role)) return <div className="gomate-portal"><LoginPage onLogin={handleLogin} onRegister={handleRegister} accounts={portalState.accounts} /></div>;
   if (path === '/staff') return <div className="gomate-portal"><StaffDashboard onNavigate={() => {}} onLogout={logout} /></div>;
-  if (path === '/admin') return <div className="gomate-portal"><AdminDashboard onNavigate={() => {}} onLogout={logout} /></div>;
-  if (path === '/business') return <div className="gomate-portal"><BusinessDashboard onNavigate={() => {}} onLogout={logout} /></div>;
-  return <div className="gomate-portal"><LoginPage onLogin={handleLogin} onRegister={() => navigate('/register')} /></div>;
+  if (path === '/admin') return <div className="gomate-portal"><AdminDashboard onNavigate={() => {}} onLogout={logout} applications={portalState.applications} onDecideBusiness={decideBusiness} /></div>;
+  if (path === '/business') return <div className="gomate-portal"><BusinessDashboard onNavigate={() => {}} onLogout={logout} user={user} applications={portalState.applications} /></div>;
+  return <div className="gomate-portal"><LoginPage onLogin={handleLogin} onRegister={handleRegister} accounts={portalState.accounts} /></div>;
 }
 
 export { LoginPage, RegistrationPage, BusinessDashboard, StaffDashboard, AdminDashboard, mockLogin, Logo, Icon, AuthShell, PillButton, StatusPill, MetricCard };

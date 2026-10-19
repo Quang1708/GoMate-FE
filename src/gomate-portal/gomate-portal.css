@@ -968,3 +968,35 @@
   .gm-auth-heading h2 { font-size: 29px; }
   .gm-auth-form-panel .gm-field-grid { grid-template-columns: 1fr; gap: 14px; }
 }
+
+.gm-community-chat { margin-top: 17px; }
+.gm-chat-messages { display: grid; gap: 17px; padding: 3px 22px 22px; }
+.gm-chat-message { display: flex; align-items: flex-start; gap: 10px; }
+.gm-chat-message > div { min-width: 0; flex: 1; }
+.gm-chat-message-meta { display: flex; align-items: baseline; gap: 9px; }
+.gm-chat-message-meta strong { color: #5f687b; font-size: 11px; }
+.gm-chat-message-meta span { color: #a5adbb; font-size: 9px; }
+.gm-chat-message p { margin-top: 5px; color: #7d8698; font-size: 11px; line-height: 1.6; }
+.gm-chat-compose { display: flex; gap: 9px; border-top: 1px solid #eff0f4; padding: 14px 21px 18px; }
+.gm-chat-compose input { min-width: 0; flex: 1; border: 1px solid var(--gm-line-strong); border-radius: 8px; padding: 0 12px; color: var(--gm-ink); font-size: 12px; outline: none; }
+.gm-chat-compose input:focus { border-color: var(--gm-purple); }
+.gm-business-application { display: grid; gap: 15px; border-top: 1px solid #f0f1f5; padding: 18px 21px; }
+.gm-business-application-heading { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.gm-business-application-heading > div:last-child { display: grid; min-width: 0; gap: 4px; }
+.gm-business-application-heading strong { color: #5a6479; font-size: 12px; }
+.gm-business-application-heading span { color: #9ca5b4; font-size: 10px; }
+.gm-business-application-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 0 42px; }
+.gm-business-application-details > div { min-width: 0; }
+.gm-business-application-details dt { color: #a5adbb; font-size: 9px; }
+.gm-business-application-details dd { overflow-wrap: anywhere; margin-top: 4px; color: #626d81; font-size: 10px; line-height: 1.5; }
+.gm-business-application .gm-field { display: grid; gap: 6px; margin-left: 42px; }
+.gm-business-application .gm-business-review-actions { margin-left: 42px; }
+
+@media (max-width: 680px) {
+  .gm-chat-messages { padding-right: 16px; padding-left: 16px; }
+  .gm-chat-compose { padding-right: 16px; padding-left: 16px; }
+  .gm-chat-compose .gm-btn { padding-right: 13px; padding-left: 13px; }
+  .gm-business-application { padding-right: 16px; padding-left: 16px; }
+  .gm-business-application-details { grid-template-columns: 1fr; margin-left: 0; }
+  .gm-business-application .gm-field, .gm-business-application .gm-business-review-actions { margin-left: 0; }
+}
