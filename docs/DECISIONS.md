@@ -4,6 +4,19 @@ Record decisions here when they materially affect architecture, dependencies,
 security, the data model, or product behavior. Keep the newest decision at the
 top. Small implementation details belong only in `DEVELOPMENT_LOG.md`.
 
+### 2026-10-19 - Restrict the activity timeline to host Management
+
+- **Status:** Accepted at the user's request; supersedes the shared group timeline placement below.
+- **Decision:** Show the stage timeline and host actions inside Management only. Chat displays an informational state notice for host and participants. Do not show the timeline in Plans, Members, progress or summary.
+- **Decision:** Keep member access to progress and summary/reviews through Plans, preserving the existing lifecycle and attendance controls.
+
+### 2026-10-19 - Make activity stages and host actions visible in the group
+
+- **Status:** Accepted at the user's request.
+- **Decision:** Keep a server-derived four-stage timeline above the group tabs and offer the next action directly from chat. Put schedule confirmation/start at the top of Management, with a link from Plans. Use the same controls in standalone host management.
+- **Decision:** Direct running hosts to attendance before completion, with a visible finish action and an explicit unmarked-member warning. Retain the backend's existing permission, confirmation, start and rating rules; this does not require schedule confirmation before starting or prevent completion with unmarked members.
+- **Validation:** Isolated browser integration covers host/member visibility, appointment changes, confirmation persistence, attendance and a real review after completion.
+
 ### 2026-10-16 - Server-backed create drafts and an inline chat attachment panel
 
 - **Status:** Accepted.

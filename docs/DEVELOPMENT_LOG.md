@@ -3,6 +3,52 @@
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
 
+## 2026-10-19 - Keep the timeline inside host Management
+
+### Summary
+
+- Move the activity timeline into host Management only. Chat now shows a compact informational notice for both host and members, with no timeline or lifecycle action buttons. Remove timelines from progress and summary as well.
+- Keep progress and summary/review access in Plans so participants can still follow and rate the activity. Preserve schedule confirmation, start, attendance and completion in host controls.
+
+### Files changed
+
+- `src/screens/{GroupScreen,ActivityProgressScreen,ActivitySummaryScreen}.tsx`, `src/components/{ActivityManagementPanel,ActivityPlanPanel}.tsx`, `src/i18n/LanguageContext.tsx`.
+- `tests/activity-lifecycle.web.cjs`, `docs/ACTIVITY_CHAT_AND_MANAGEMENT.md`, `docs/DECISIONS.md`.
+
+### Verification
+
+- `npm run typecheck`, `npm run lint`: Passed. `npx expo-doctor`: 21/21 passed. Expo web export: Passed.
+- `npm run test:lifecycle:web`: Passed: timeline visible only in host Management across all phases; informational Chat notices for both roles; no timeline in Plans, Members, attendance or summary; rating remains accessible through Plans. Checked chat/composer at 360/390/768/1440 px and inspected Chat/Management screenshots.
+- `npm run test:trip:web`: Passed, including schedule confirmation, chat/media/composer, shared plans/Excel and drafts. Both suites reported no browser runtime errors. `git diff --check`: Passed.
+
+### Remaining work
+
+- Physical iOS/Android device verification.
+
+## 2026-10-19 - Visible activity timeline and next host actions
+
+### Summary
+
+- Keep a four-stage, API-backed timeline above the group tabs. Offer schedule confirmation/start directly from chat and put the next host action at the top of Management. Link Plans to these controls and refresh group state after saving a plan.
+- Direct running hosts to attendance and a visible finish action, warn about unmarked members at confirmation, and retain the timeline in progress/summary. Preserve existing server rules and distinguish schedules that were never confirmed. Include English UI translations.
+
+### Files changed
+
+- `src/components/{ActivityLifecyclePanel,ActivityManagementPanel,ActivityPlanPanel}.tsx`.
+- `src/screens/{GroupScreen,ActivityProgressScreen,ActivitySummaryScreen}.tsx`, `src/i18n/LanguageContext.tsx`.
+- `tests/activity-lifecycle.web.cjs`, `tests/trip-social.web.cjs`, `package.json`, `docs/ACTIVITY_CHAT_AND_MANAGEMENT.md`, `docs/DECISIONS.md`.
+
+### Verification
+
+- `npm run typecheck`, `npm run lint`: Passed. `npx expo-doctor`: 21/21 checks passed. Expo web export: Passed.
+- `npm run test:lifecycle:web`: Passed with temporary MongoDB and host/member/joiner browser sessions: two initial account members, approval/chat, plan save, schedule confirm/cancel/reload/reset, start/cancel, attendance warning/persistence, completion and real rating. Checked 360/390/768/1440 px layouts and composer visibility; no browser runtime errors.
+- `npm run test:trip:web`: Passed after updating the schedule assertion to the new timeline; includes plan/Excel, shared chat/media, attachments and draft regressions. `npm run test:community:web`: Passed, including persisted ratings and host reviews.
+- Reviewed mobile screenshots for chat timeline, host management, attendance and summary. `git diff --check`: Passed. Local frontend and API health returned HTTP 200.
+
+### Remaining work
+
+- Physical iOS/Android device verification. The full web smoke suite has a previously observed unrelated map iframe timeout; targeted lifecycle and related browser suites passed.
+
 ## 2026-10-16 - Account drafts, companion typing, inline chat tools and member portraits
 
 ### Summary

@@ -119,7 +119,7 @@ const be = name => import(pathToFileURL(beRoot + '/src/' + name + '.js').href);
     await page.screenshot({path:join(artifacts,'manage-390.png'),fullPage:true});
     await click(page,'Mở chat nhóm');
     assert.equal(await page.getByRole('tab',{name:'Quản lý',exact:true}).count(),1);
-    await page.getByRole('tab',{name:'Quản lý',exact:true}).click(); assert.equal(await page.getByText('Quản lý thành viên',{exact:true}).count(),0); await click(page,'Chốt lịch đi'); await click(page,'Xác nhận'); await visible(page,'Đã chốt lịch · Thành viên có thể xem trong Kế hoạch');
+    await page.getByRole('tab',{name:'Quản lý',exact:true}).click(); assert.equal(await page.getByText('Quản lý thành viên',{exact:true}).count(),0); await click(page,'Chốt lịch đi'); await click(page,'Xác nhận'); await page.getByLabel('Tiến trình hoạt động: Đã chốt lịch',{exact:true}).waitFor({state:'visible'});
     await page.getByRole('tab',{name:'Chat',exact:true}).click();
     const composer = page.getByLabel('Tin nhắn',{exact:true});
     const emptyComposer = await composer.boundingBox(); assert.ok(emptyComposer.height >= 40 && emptyComposer.height <= 48);
