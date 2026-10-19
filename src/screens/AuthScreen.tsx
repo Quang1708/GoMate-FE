@@ -66,6 +66,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
             <GoogleLoginButton onLogin={onLogin} />
             <MethodButton icon="logo-apple" label="Continue with Apple" onPress={unavailable} />
             <InlinePrompt action="Log in" label="Already have an account?" onPress={() => setStage('login')} />
+            {Platform.OS === 'web' && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 20 }}><Pressable accessibilityRole="link" style={{ padding: 12 }} onPress={() => window.location.assign('/demo')}><Text style={{ color: colors.primary, fontSize: 12 }}>Bộ demo GoMate</Text></Pressable><Pressable accessibilityRole="link" style={{ padding: 12 }} onPress={() => window.location.assign('/portal')}><Text style={{ color: colors.primary, fontSize: 12 }}>Dành cho doanh nghiệp</Text></Pressable></View>}
           </View>
           <Text style={styles.legal}>By continuing you agree to our Terms of Service and Privacy Policy.</Text>
         </View>

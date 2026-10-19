@@ -1,6 +1,7 @@
 import { ImageSourcePropType } from 'react-native';
 
 export type Activity = {
+  business?: { name: string; verified: boolean; discountPercent: number; offer: string; terms: string };
   memberAvatars?: { userId: string; name: string; avatarUrl?: string | null }[];
   version?: number; reservedSeats?: number; companions?: { name: string; note: string }[]; hostAvatarUrl?: string | null; costNote?: string; itinerary?: import('../services/planService').ItineraryStep[]; planLink?: string; planFile?: import('../services/planService').PlanFile | null;
   organizerType?: 'personal' | 'business';

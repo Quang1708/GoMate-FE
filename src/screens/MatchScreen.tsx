@@ -13,6 +13,7 @@ import { Text } from '../components/LocalizedText';
 type SheetName = 'more' | 'report' | 'safety' | 'notInterested' | null;
 
 type MatchScreenProps = {
+  onSearch?: () => void;
   error?: string;
   locationLabel?: string; favoriteIds?: string[]; onFavorite?: (activity: Activity) => Promise<void>; onFeedback?: (activity: Activity, outcome: 'skip' | 'dislike') => void;
   activityItems?: Activity[];
@@ -32,7 +33,7 @@ function isHorizontalGesture(dx: number, dy: number) {
   return Math.abs(dx) > HORIZONTAL_INTENT_DISTANCE && Math.abs(dx) > Math.abs(dy) * HORIZONTAL_INTENT_RATIO;
 }
 
-export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite, onFeedback, activityItems = activities, onFilterPress, onMatched, onBack, state = 'ready' }: MatchScreenProps) {
+export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite, onFeedback, activityItems = activities, onFilterPress, onMatched, onBack, onSearch, state = 'ready' }: MatchScreenProps) {
   const { width } = useWindowDimensions();
   const [cardHeight, setCardHeight] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -132,7 +133,7 @@ export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite
     return (
       <SafeAreaView style={styles.safeArea}>
         <MatchBackground />
-        <View style={styles.page}><MatchHeader distance={locationLabel} onBack={onBack} onFilter={onFilterPress} /><MatchState action={currentState.action} icon={currentState.icon} message={currentState.message} onAction={currentState.action ? onFilterPress : undefined} title={currentState.title} /></View>
+        <View style={styles.page}><MatchHeader onSearch={onSearch} distance={locationLabel} onBack={onBack} onFilter={onFilterPress} /><MatchState action={currentState.action} icon={currentState.icon} message={currentState.message} onAction={currentState.action ? onFilterPress : undefined} title={currentState.title} /></View>
       </SafeAreaView>
     );
   }
@@ -142,7 +143,7 @@ export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite
       <SafeAreaView style={styles.safeArea}>
         <MatchBackground />
         <View style={styles.page}>
-          <MatchHeader distance={locationLabel} onBack={onBack} onFilter={onFilterPress} />
+          <MatchHeader onSearch={onSearch} distance={locationLabel} onBack={onBack} onFilter={onFilterPress} />
           <MatchState action={canUndo ? 'Quay lại hoạt động vừa bỏ qua' : 'Điều chỉnh bộ lọc'} icon="calendar-outline" message="Hãy mở rộng khoảng cách, thời gian rảnh hoặc danh mục để tiếp tục Match." onAction={canUndo ? undoSkip : onFilterPress} title="Không còn hoạt động phù hợp" />
         </View>
         {requestToast && <RequestToast />}
@@ -154,7 +155,7 @@ export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite
     <SafeAreaView style={styles.safeArea}>
       <MatchBackground />
       <View style={styles.page}>
-        <MatchHeader distance={locationLabel} onBack={onBack} onFilter={onFilterPress} />
+        <MatchHeader onSearch={onSearch} distance={locationLabel} onBack={onBack} onFilter={onFilterPress} />
         {error ? <Text style={{ color: colors.danger, padding: 14 }}>{error}</Text> : null}
         <View {...panResponder.panHandlers} style={styles.deck}>
           <ScrollView contentContainerStyle={styles.scrollContent} directionalLockEnabled scrollEnabled={!isSwiping} showsVerticalScrollIndicator={false}>

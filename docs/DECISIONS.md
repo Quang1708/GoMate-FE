@@ -4,6 +4,16 @@ Record decisions here when they materially affect architecture, dependencies,
 security, the data model, or product behavior. Keep the newest decision at the
 top. Small implementation details belong only in `DEVELOPMENT_LOG.md`.
 
+### 2026-10-19 - Connect the merged partner portal and business events to the app
+
+- **Status:** Accepted at the user's request. `origin/htan-ui-web` was merged into `fe-ui2` without conflicts; existing activity/chat work was committed before merging.
+- **Decision:** Reuse the merged portal's visual foundations at `/portal`, with real session/role/application/post APIs. Retain its original mock module as a design preview only. Isolate DOM/CSS imports behind a web platform component so native Expo bundles remain supported.
+- **Decision:** Business applications may be reviewed by Staff/Admin. New portal event posts include schedule, place, capacity, final price, discount percentage and offer terms. Only approved events become app activities, using the server-owned verified business identity and an official confirmed appointment. Legacy text-only announcements stay in the portal feed.
+- **Decision:** Business attendees apply under their own account and await organizer approval. Anonymous reserved seats and host-added friends are disabled for business events on both client and API. Existing group permissions, attendance and review eligibility remain enforced.
+- **Decision:** Chat shows only a state notice; library/menu actions live in the top-right header. The phase timeline stays in host Management. Attendance and Plans use structured cards and explicit controls.
+- **Decision:** Demo support is an opt-in CLI seed plus ordinary API login at `/demo`, not a public seeding endpoint or authentication bypass. Seeded records are identifiable, preserved on reruns and disabled under production NODE_ENV. Keyword search and deep links let two independent browser sessions find the same activity.
+- **Validation:** Business/individual lifecycle browser integration, full backend suite, web smoke, maps/community/trip suites, service tests, TypeScript/ESLint/Expo Doctor and Android/web exports passed. Physical-device testing remains outstanding.
+
 ### 2026-10-19 - Restrict the activity timeline to host Management
 
 - **Status:** Accepted at the user's request; supersedes the shared group timeline placement below.

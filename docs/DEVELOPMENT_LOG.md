@@ -3,6 +3,34 @@
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
 
+## 2026-10-19 - Merge partner web UI, improve group tools and ship a real business demo
+
+### Summary
+
+- Commit prior lifecycle work, then merge `origin/htan-ui-web` into `fe-ui2` without conflicts. Reuse its portal design foundations in a live `/portal` workspace; isolate web DOM/CSS from native bundles and keep the original mock module as a visual preview.
+- Move the shared-content library to the top-right chat header and add working menu actions for plans, members, host management, refresh and link sharing. Preserve composer contents and host-only phase timelines.
+- Replace plain attendance controls with progress/counts, filters, avatars/status chips and explicit selected states. Redesign Plans with appointment, price/roster, itinerary and document cards, retaining versioned editing/downloads.
+- Add verified business offer identity/green card borders, discount percentages and terms. Connect staff-reviewed events to app discovery/membership/chat. Use official schedules and disable anonymous companions/host-added friends for business groups on both client/API.
+- Add independent-session `/demo` login and setup guide, idempotent local demo seed, activity keyword search and shareable links. Seed only demo-owned accounts/data; use normal backend authorization.
+
+### Files changed
+
+- `App.tsx`, `package.json`, `README.md`, `src/gomate-portal/*`, `src/components/{ChatHeaderActions,AttendanceRoster,PlanOverview,BusinessIdentity,WebWorkspace*}.tsx`.
+- Chat/group/attendance/plan/detail/search/Match screens and components, activity DTO mapping/model, `tests/{business-demo,activity-lifecycle,trip-social}.web.cjs`.
+- `docs/{DEMO_GUIDE,ACTIVITY_CHAT_AND_MANAGEMENT,DECISIONS,DEVELOPMENT_LOG}.md`; companion BE changes are on its `fe-ui2` branch.
+
+### Verification
+
+- Full BE suite: 103/103 passed, including verification/publication, consumer spoof prevention, guest/friend restrictions, ordinary join approval/chat and attendance/rating. Fixed local dependency installation (missing Leaflet); no source workaround for the previous map timeout.
+- `npm run test:web`, `test:lifecycle:web`, `test:trip:web`, `test:community:web`, `test:maps:web`, `test:business:web`, `test:integration`: Passed. Nine native-session/API-URL/profile-date checks passed. Browser suites reported no runtime errors.
+- `npm run typecheck`, `npm run lint`: Passed; `npx expo-doctor`: 21/21. Expo web and Android exports passed.
+- Business browser integration covered new application → staff approval → event/offer creation → publication → searchable verified card → join approval → cross-session chat; checked 360/390/768/1440 px layouts and header library/menu.
+- Inspected attendance, business plan, Chat and mobile/desktop portal screenshots. Actual installed Chrome and Edge independently logged into host/member accounts and found demo activities against the local running API. Repeated local seed preserved the same future sample activity IDs. `git diff --check`: Passed.
+
+### Remaining work
+
+- Physical iOS/Android keyboard/share-sheet verification. Prices/offers remain informational; there is no payment flow. Legacy text-only business announcements remain portal-only until recreated with event details.
+
 ## 2026-10-19 - Keep the timeline inside host Management
 
 ### Summary

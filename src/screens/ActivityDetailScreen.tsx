@@ -9,6 +9,7 @@ import { GradientButton } from '../components/GradientButton';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { TripPlanView } from '../components/TripPlanView';
 import { RouteMap } from '../components/RouteMap';
+import { BusinessIdentity } from '../components/BusinessIdentity';
 import { Activity } from '../data/activities';
 import { colors, layout, radii } from '../theme';
 import { genderOptions, religionOptions } from '../components/ActivityChoices';
@@ -30,6 +31,7 @@ export function ActivityDetailScreen({ activity, error, isHost = false, onBack, 
               <Text style={styles.title}>{activity.title}</Text>
             </LinearGradient>
           </ImageBackground>
+          <BusinessIdentity activity={activity} details />
           {Boolean(activity.images?.length) && <ScrollView horizontal contentContainerStyle={{ gap: 10, paddingVertical: 12 }}>{activity.images!.map((source, index) => <Image key={index} source={source} style={{ width: 160, height: 120, borderRadius: 14 }} />)}</ScrollView>}
 
           <View style={styles.infoGrid}>

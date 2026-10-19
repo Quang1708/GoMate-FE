@@ -5,6 +5,7 @@ import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pre
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BlockUserButton } from '../components/BlockUserButton';
+import { ChatHeaderActions } from '../components/ChatHeaderActions';
 import { Text } from '../components/LocalizedText';
 import { imageUrl } from '../services/profileService';
 import { ChatMessage, chatHistory, Conversation, getConversation, markChatRead, sendChatMessage } from '../services/chatService';
@@ -12,7 +13,7 @@ import { watchConversation } from '../services/chatEvents';
 import { ApiError, getSession } from '../services/api';
 import { colors, layout } from '../theme';
 
-export function ChatScreen({ conversation, onBack, error, embedded = false }: { embedded?: boolean; error?: string; conversation: Conversation; onBack: () => void }) {
+export function ChatScreen({ conversation, onBack, error, embedded = false, refreshKey = 0 }: { refreshKey?: number; embedded?: boolean; error?: string; conversation: Conversation; onBack: () => void }) {
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]), [location, setLocation] = useState<ChatLocation | null>(null), [library, setLibrary] = useState(false), [preparing, setPreparing] = useState(false);
   const [attachmentPanel, setAttachmentPanel] = useState(false), [keyboardHeight, setKeyboardHeight] = useState(260), [inputHeight, setInputHeight] = useState(44);
   const inputRef = useRef<TextInput>(null);
@@ -42,7 +43,7 @@ export function ChatScreen({ conversation, onBack, error, embedded = false }: { 
     const stop = watchConversation(conversation.id, () => { if (alive) void poll(); }, value => { connected = value; });
     const timer = setInterval(() => { if (Date.now() - lastPoll >= (connected ? 15000 : 3000)) void poll(); }, 3000);
     return () => { alive = false; clearInterval(timer); stop(); };
-  }, [conversation.id, merge, retry]);
+  }, [conversation.id, merge, retry, refreshKey]);
   const send = async () => {
     const clean = message.trim(), signature = JSON.stringify({ clean, ids: attachments.map(file => file.id), location });
     if ((!clean && !attachments.length && !location) || lock.current || blocked || loading || preparing) return;
@@ -65,8 +66,7 @@ export function ChatScreen({ conversation, onBack, error, embedded = false }: { 
     return date.toDateString() === now.toDateString() ? 'Hôm nay' : date.toDateString() === yesterday.toDateString() ? 'Hôm qua' : date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
   return <SafeAreaView style={styles.safe} edges={embedded ? [] : ['top', 'bottom', 'left', 'right']}><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-    {!embedded && <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="Quay lại" onPress={onBack} hitSlop={12}><Ionicons name="chevron-back" color={colors.text} size={27} /></Pressable>{meta.avatarUrl ? <Image source={{ uri: imageUrl(meta.avatarUrl) }} style={styles.avatar} /> : <View style={[styles.avatar, styles.fallback]}><Text style={{ color: colors.primary, fontWeight: '800' }}>{meta.name.slice(0, 1).toUpperCase()}</Text></View>}<View style={{ flex: 1, gap: 4 }}><Text numberOfLines={1} style={styles.headerName}>{meta.name}</Text><Text style={styles.caption}>Trò chuyện riêng</Text></View></View>}{!embedded && meta.type === 'direct' && meta.participantIds?.find(id => id !== getSession()?.user.id) && <View style={{ paddingHorizontal: 18, backgroundColor: colors.surface }}><BlockUserButton userId={meta.participantIds.find(id => id !== getSession()?.user.id)!} onBlocked={onBack} /></View>}
-    <View style={{ alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 7, backgroundColor: colors.surface }}><Pressable accessibilityRole="button" accessibilityLabel="Xem ảnh, tệp và liên kết đã gửi" onPress={() => setLibrary(true)} style={{ flexDirection: 'row', gap: 7, padding: 6, alignItems: 'center' }}><Ionicons name="albums-outline" color={colors.primary} size={19} /><Text style={styles.link}>Nội dung đã chia sẻ</Text></Pressable></View>
+    {!embedded && <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="Quay lại" onPress={onBack} hitSlop={12}><Ionicons name="chevron-back" color={colors.text} size={27} /></Pressable>{meta.avatarUrl ? <Image source={{ uri: imageUrl(meta.avatarUrl) }} style={styles.avatar} /> : <View style={[styles.avatar, styles.fallback]}><Text style={{ color: colors.primary, fontWeight: '800' }}>{meta.name.slice(0, 1).toUpperCase()}</Text></View>}<View style={{ flex: 1, gap: 4 }}><Text numberOfLines={1} style={styles.headerName}>{meta.name}</Text><Text style={styles.caption}>Trò chuyện riêng</Text></View><ChatHeaderActions sharePath={`/app/messages/chat/${conversation.id}`} onShared={() => setLibrary(true)} onRefresh={() => setRetry(value => value + 1)} /></View>}{!embedded && meta.type === 'direct' && meta.participantIds?.find(id => id !== getSession()?.user.id) && <View style={{ paddingHorizontal: 18, backgroundColor: colors.surface }}><BlockUserButton userId={meta.participantIds.find(id => id !== getSession()?.user.id)!} onBlocked={onBack} /></View>}
     {loadError || error ? <View style={styles.errorBar}><Ionicons name="cloud-offline-outline" size={18} color={colors.danger} /><Text accessibilityRole="alert" style={{ color: colors.danger, flex: 1, fontSize: 12 }}>{loadError || error}</Text><Pressable accessibilityRole="button" onPress={() => setRetry(value => value + 1)}><Text style={styles.link}>Thử lại</Text></Pressable></View> : null}
     <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={[styles.messages, !messages.length && { justifyContent: 'center' }]} onContentSizeChange={() => { if (follow.current) scroll.current?.scrollToEnd({ animated: true }); }} onScroll={event => { const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent; follow.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 100; }} scrollEventThrottle={100} keyboardShouldPersistTaps="handled">
       {cursor && <Pressable accessibilityRole="button" disabled={olderLoading} onPress={() => void older()} style={styles.older}><Text style={styles.link}>{olderLoading ? 'Đang tải...' : 'Xem tin nhắn cũ hơn'}</Text></Pressable>}

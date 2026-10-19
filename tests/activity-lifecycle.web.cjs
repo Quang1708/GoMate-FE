@@ -87,7 +87,11 @@ const be = name => import(pathToFileURL(beRoot + '/src/' + name + '.js').href);
     await host.getByRole('button', { name: 'Bắt đầu hoạt động', exact: true }).click(); await click(host, 'Xác nhận');
     await visible(host, 'Điểm danh (0/4)'); await noTimeline(host);
     await click(host, 'Kết thúc hoạt động'); await visible(host, 'Còn 4 người chưa điểm danh. Họ sẽ không thể đánh giá hoạt động.'); await click(host, 'Tiếp tục hoạt động');
-    for (const user of users) { await host.getByText(user.name, { exact: true }).locator('..').getByText('Có mặt', { exact: true }).last().click(); }
+    await host.getByRole('button', { name: 'Lọc điểm danh: Chưa điểm danh', exact: true }).click();
+    await host.getByRole('button', { name: `Điểm danh ${users[0].name}: Có mặt`, exact: true }).click(); await visible(host, 'Điểm danh (1/4)');
+    assert.equal(await host.getByRole('button', { name: `Điểm danh ${users[0].name}: Có mặt`, exact: true }).count(), 0);
+    await host.getByRole('button', { name: 'Lọc điểm danh: Tất cả', exact: true }).click();
+    for (const user of users.slice(1)) { await host.getByRole('button', { name: `Điểm danh ${user.name}: Có mặt`, exact: true }).click(); }
     await visible(host, 'Điểm danh (4/4)'); await host.reload(); await visible(host, 'Điểm danh (4/4)');
     await member.reload(); await notice(member, 'Hoạt động đã bắt đầu'); await member.getByRole('tab', { name: 'Kế hoạch', exact: true }).click(); await noTimeline(member); await member.getByRole('button', { name: 'Xem diễn biến', exact: true }).click(); await visible(member, 'Điểm danh (4/4)'); await noTimeline(member);
     await host.goto(groupUrl); await notice(host, 'Hoạt động đã bắt đầu'); await host.getByRole('tab', { name: 'Quản lý', exact: true }).click(); await phase(host, 'Đang diễn ra'); await host.getByRole('button', { name: 'Điểm danh & kết thúc', exact: true }).click(); await visible(host, 'Điểm danh (4/4)');

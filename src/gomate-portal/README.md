@@ -1,6 +1,8 @@
 # GoMate Portal Module
 
-This folder is a standalone React module for the GoMate web portal. It does not modify the existing app entry point, router, or styles.
+The visual module was merged from `origin/htan-ui-web`. Its original `GoMatePortal.jsx` and preview remain a standalone design reference. The application renders `ConnectedPortal.jsx` at `/portal`, using the same visual foundations with real authentication, business applications, moderation and publication APIs. `/demo` provides normal-login demo accounts and walkthroughs; see [the demo guide](../../docs/DEMO_GUIDE.md).
+
+The original preview's mock credentials/data are not used by the live portal. Native builds resolve a platform fallback and do not import DOM/CSS modules. The live portal reads the authenticated user's role from `/api/portal/me`, not a role selector.
 
 ## Use
 

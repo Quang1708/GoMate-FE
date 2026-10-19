@@ -494,5 +494,5 @@ export function GoMatePortal() {
   return <div className="gomate-portal"><LoginPage onLogin={handleLogin} onRegister={() => navigate('/register')} /></div>;
 }
 
-export { LoginPage, RegistrationPage, BusinessDashboard, StaffDashboard, AdminDashboard, mockLogin };
+export { LoginPage, RegistrationPage, BusinessDashboard, StaffDashboard, AdminDashboard, mockLogin, Logo, Icon, AuthShell, PillButton, StatusPill, MetricCard };
 export default GoMatePortal;

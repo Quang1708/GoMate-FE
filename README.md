@@ -1,5 +1,7 @@
 # GoMate Mobile
 
+Demo hai trình duyệt, portal doanh nghiệp và quy trình staff duyệt bài: [hướng dẫn demo](docs/DEMO_GUIDE.md). Tạo dữ liệu bằng `npm run demo:seed`, mở `/demo` hoặc `/portal` trên web.
+
 Ứng dụng tìm người cùng tham gia một hoạt động cụ thể, được xây dựng bằng React
 Native, Expo SDK 57 và TypeScript. Luồng hiện tại gồm đăng nhập/đăng ký, xác minh
 email, hoàn thiện hồ sơ và khu vực ứng dụng chính với năm tab: Trang chủ, Match,

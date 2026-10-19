@@ -12,6 +12,7 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { OnboardingPermissionsScreen } from './src/screens/OnboardingPermissionsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
+import { WebWorkspace } from './src/components/WebWorkspace';
 
 function pendingEmail() { try { return sessionStorage.getItem('gomate.verificationEmail') || ''; } catch { return ''; } }
 
@@ -37,6 +38,8 @@ export default function App() {
     return () => { window.removeEventListener('popstate', restore); window.removeEventListener('hashchange', restore); };
   }, []);
   useEffect(() => { setUnauthorizedHandler(() => setScreen('auth')); return () => setUnauthorizedHandler(); }, []);
+
+  if (Platform.OS === 'web' && ['/portal', '/demo'].includes(window.location.pathname.replace(/\/$/, ''))) return <WebWorkspace mode={window.location.pathname.startsWith('/portal') ? 'portal' : 'demo'} />;
 
   return (
     <SafeAreaProvider>
