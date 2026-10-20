@@ -310,7 +310,7 @@ function ListPage({ path, page, setPage, retry, render }) {
     [error, setError] = useState('');
   useEffect(() => {
     let alive = true;
-    portalApi(path + (path.includes('?') ? '&' : '?') + 'page=' + page)
+    portalApi(path + '?page=' + page)
       .then(value => {
         if (alive) setData(value);
       })
@@ -800,13 +800,6 @@ export function Tickets({ me }) {
   );
 }
 
-const roleNames = {
-  admin: 'Admin',
-  staff: 'Staff',
-  business: 'Doanh nghiệp',
-  user: 'User',
-};
-
 function RoleEditor({ item, actorId }) {
   const [role, setRole] = useState(item.role || 'user'),
     [current, setCurrent] = useState(item.role || 'user'),
@@ -815,7 +808,6 @@ function RoleEditor({ item, actorId }) {
   const disabled = item.id === actorId;
   return (
     <form
-      className="user-role-form"
       onSubmit={event => {
         event.preventDefault();
         void action.run(async () => {
@@ -826,38 +818,32 @@ function RoleEditor({ item, actorId }) {
         });
       }}
     >
-      <fieldset disabled={action.busy || disabled} className="user-role-fieldset">
-        <div className="user-role-controls">
-          <label className="gm-field-select">
-            <span>Vai trò</span>
-            <select
-              aria-label="Vai trò"
-              value={role}
-              onChange={event => {
-                setRole(event.target.value);
-                setSaved(false);
-              }}
-            >
-              <option value="user">User</option>
-              <option value="staff">Staff</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
-          <Button type="submit" disabled={role === current}>
-            Lưu vai trò
-          </Button>
-        </div>
-        <p className="portal-text">
-          Quyền hiện tại: <strong>{roleNames[current] || current}</strong>. Thay đổi quyền sẽ yêu cầu tài khoản này đăng nhập lại.
-        </p>
+      <fieldset disabled={action.busy || disabled}>
+        <label>
+          Vai trò{' '}
+          <select
+            aria-label="Vai trò"
+            value={role}
+            onChange={event => {
+              setRole(event.target.value);
+              setSaved(false);
+            }}
+          >
+            <option value="user">User</option>
+            <option value="staff">Staff</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+        <p>Quyền hiện tại: {current}. Thay đổi quyền sẽ yêu cầu tài khoản này đăng nhập lại.</p>
+        <Button type="submit" disabled={role === current}>
+          Lưu vai trò
+        </Button>
       </fieldset>
       {item.effectiveRole === 'business' && (
-        <p className="portal-text">
-          Tài khoản đã được duyệt doanh nghiệp. Chọn User vẫn giữ quyền doanh nghiệp từ hồ sơ đã duyệt.
-        </p>
+        <p>Tài khoản đã được duyệt doanh nghiệp. Chọn User vẫn giữ quyền doanh nghiệp từ hồ sơ đã duyệt.</p>
       )}
-      {disabled && <p className="portal-text">{'Không thể tự đổi vai trò của tài khoản đang đăng nhập.'}</p>}
-      {saved && <p role="status" className="user-role-saved">Đã cập nhật vai trò. Các phiên đăng nhập cũ đã bị thu hồi.</p>}
+      {disabled && <p>{'Không thể tự đổi vai trò của tài khoản đang đăng nhập.'}</p>}
+      {saved && <p role="status">Đã cập nhật vai trò. Các phiên đăng nhập cũ đã bị thu hồi.</p>}
       <ErrorBox error={action.error} />
     </form>
   );
@@ -868,33 +854,18 @@ function UserRow({ item, actorId, subscriptions = false }) {
     [status, setStatus] = useState(item.subscription?.status || 'active'),
     [saved, setSaved] = useState(false),
     action = useAction();
-  const effective = item.effectiveRole || item.role || 'user';
   return (
     <article className="gm-panel portal-card user-row-card">
       <div className="card-header-row">
-        <div className="post-author-block">
-          <div className="post-avatar" aria-hidden="true">
-            {(item.name || item.email || 'U').slice(0, 1).toUpperCase()}
-          </div>
-          <div>
-            <h3>{item.name}</h3>
-            <p className="user-email-text">{item.email}</p>
-          </div>
-        </div>
-        <div className="post-status-block">
-          <span className={`gm-status gm-status--${effective === 'admin' ? 'approved' : effective === 'staff' ? 'open' : effective === 'business' ? 'active' : 'pending'}`}>
-            {roleNames[effective] || effective}
-          </span>
-          <span className={`gm-status gm-status--${item.email_verified ? 'approved' : 'pending'}`}>
-            {item.email_verified ? 'Đã xác minh email' : 'Chưa xác minh'}
-          </span>
+        <div>
+          <h3>{item.name}</h3>
+          <p className="user-email-text">{item.email}</p>
         </div>
       </div>
       {!subscriptions ? (
         <RoleEditor item={item} actorId={actorId} />
       ) : (
         <form
-          className="user-role-form"
           onSubmit={e => {
             e.preventDefault();
             void action.run(async () => {
@@ -904,77 +875,45 @@ function UserRow({ item, actorId, subscriptions = false }) {
             });
           }}
         >
-          <fieldset disabled={action.busy} className="user-role-fieldset">
-            <div className="user-role-controls">
-              <label className="gm-field-select">
-                <span>Gói</span>
-                <select
-                  aria-label="Gói"
-                  value={plan}
-                  onChange={e => {
-                    setPlan(e.target.value);
-                    setSaved(false);
-                  }}
-                >
-                  <option value="free">Free</option>
-                  <option value="plus">Plus</option>
-                </select>
-              </label>
-              <label className="gm-field-select">
-                <span>Trạng thái</span>
-                <select
-                  aria-label="Trạng thái"
-                  value={status}
-                  onChange={e => {
-                    setStatus(e.target.value);
-                    setSaved(false);
-                  }}
-                >
-                  {['active', 'paused', 'cancelled'].map(v => (
-                    <option key={v} value={v}>
-                      {statuses[v]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button type="submit">Lưu gói</Button>
-            </div>
-            {saved && <span role="status" className="user-role-saved">Đã lưu</span>}
+          <fieldset disabled={action.busy}>
+            <label>
+              Gói{' '}
+              <select
+                aria-label="Gói"
+                value={plan}
+                onChange={e => {
+                  setPlan(e.target.value);
+                  setSaved(false);
+                }}
+              >
+                <option value="free">Free</option>
+                <option value="plus">Plus</option>
+              </select>
+            </label>
+            <label>
+              Trạng thái{' '}
+              <select
+                aria-label="Trạng thái"
+                value={status}
+                onChange={e => {
+                  setStatus(e.target.value);
+                  setSaved(false);
+                }}
+              >
+                {['active', 'paused', 'cancelled'].map(v => (
+                  <option key={v} value={v}>
+                    {statuses[v]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button type="submit">Lưu gói</Button>
+            {saved && <span role="status">Đã lưu</span>}
             <ErrorBox error={action.error} />
           </fieldset>
         </form>
       )}
     </article>
-  );
-}
-
-function UsersSection({ actorId, subscriptions = false }) {
-  const [query, setQuery] = useState('');
-  const trimmed = query.trim();
-  const path = trimmed ? `/users?q=${encodeURIComponent(trimmed)}` : '/users';
-  return (
-    <>
-      <div className="portal-section-head">
-        <h2>{subscriptions ? 'Quản lý gói dịch vụ' : 'Quản lý người dùng & Phân quyền'}</h2>
-        <span className="portal-section-sub">
-          {subscriptions
-            ? 'Cập nhật gói Free / GoMate Plus và trạng thái sử dụng của tài khoản'
-            : 'Tìm kiếm tài khoản và cấp quyền User, Staff hoặc Admin trực tiếp'}
-        </span>
-      </div>
-      <section className="gm-panel portal-card">
-        <Field
-          label="Tìm kiếm tài khoản"
-          placeholder="Nhập tên hoặc địa chỉ email..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-        />
-      </section>
-      <RemoteList
-        path={path}
-        render={item => <UserRow item={item} actorId={actorId} subscriptions={subscriptions} />}
-      />
-    </>
   );
 }
 
@@ -1162,7 +1101,10 @@ export function GoMatePortal() {
         {current === 'reports' && <Reports />}
         {current === 'tickets' && <Tickets me={me} />}
         {['users', 'subscriptions'].includes(current) && (
-          <UsersSection actorId={me.id} subscriptions={current === 'subscriptions'} />
+          <RemoteList
+            path="/users"
+            render={item => <UserRow item={item} actorId={me.id} subscriptions={current === 'subscriptions'} />}
+          />
         )}
         {current === 'billing' && (
           <section className="gm-panel portal-card">
