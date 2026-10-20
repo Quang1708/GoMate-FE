@@ -43,6 +43,7 @@ import { SettingsScreen, SettingsPage } from './SettingsScreen';
 import { ProfilePreview } from './ProfileViews';
 import { MyReviewsScreen, VerificationStatusScreen } from './ProfileAccountScreens';
 import { UserProfileScreen } from './UserProfileScreen';
+import { ActivitySearchScreen } from './ActivitySearchScreen';
 
 type PeopleSource = { name: 'discover' } | { name: 'pending' } | { name: 'manage' } | { name: 'detail'; activity: Activity };
 
@@ -51,6 +52,7 @@ type FullScreenRoute =
   | { name: 'friends' }
   | { name: 'chatLink'; id: string }
   | { name: 'discover' }
+  | { name: 'searchActivities' }
   | { name: 'filter' }
   | { name: 'favorites' }
   | { name: 'pending' }
@@ -89,7 +91,7 @@ function decodeNavigation(path: string): Navigation {
   if (['activityDetail', 'group', 'progress', 'summary', 'rating'].includes(name) && id) {
     try { return { activeTab, route: { name: 'activityLink', id: decodeURIComponent(id), target: name as 'activityDetail' | 'group' | 'progress' | 'summary' | 'rating' } }; } catch { return { activeTab, route: null }; }
   }
-  const route = ['friends', 'discover', 'filter', 'favorites', 'pending', 'manage', 'notifications', 'myActivities', 'editProfile', 'ownProfilePreview', 'settings', 'verification', 'myReviews'].includes(name) ? { name } as FullScreenRoute : null;
+  const route = ['friends', 'discover', 'searchActivities', 'filter', 'favorites', 'pending', 'manage', 'notifications', 'myActivities', 'editProfile', 'ownProfilePreview', 'settings', 'verification', 'myReviews'].includes(name) ? { name } as FullScreenRoute : null;
   return { activeTab, route };
 }
 
@@ -216,7 +218,8 @@ function MainAppContent({ onLogout }: { onLogout: () => void }) {
 
   if (route?.name === 'activityLink' || route?.name === 'chatLink') return <SafeAreaView style={styles.safeArea}><RemoteState loading error="" onRetry={() => {}} /></SafeAreaView>;
   if (route?.name === 'discover' && (discovery.loading || discovery.error || preferences.loading || preferences.error)) return <SafeAreaView style={styles.safeArea}><ScreenHeader title="Khám phá" onBack={() => setRoute(null)} /><RemoteState loading={discovery.loading || preferences.loading} error={discovery.error || preferences.error} onRetry={() => { void preferences.reload(); void discovery.reload(); }} /></SafeAreaView>;
-  if (route?.name === 'discover') return <MatchScreen state={(filters.radiusEnabled || filters.sort === 'nearest') && !filters.coordinates ? 'location-required' : 'ready'} error={actionError} onMatched={submitJoin} favoriteIds={preferences.data.favoriteIds} onFavorite={toggleFavorite} locationLabel={filters.coordinates ? filters.radiusEnabled ? `Trong ${filters.distance} km` : 'Đã chọn vị trí' : undefined} onFeedback={(activity, outcome) => { void matchFeedback(activity.id, outcome).catch(() => {}); }} activityItems={filteredActivities} onBack={() => { setRoute(null); void discovery.reload(); }} onFilterPress={() => setRoute({ name: 'filter' })} />;
+  if (route?.name === 'searchActivities') return <ActivitySearchScreen onBack={() => setRoute({ name: 'discover' })} onOpen={activity => setRoute({ name: 'activityDetail', activity, source: 'discover' })} />;
+  if (route?.name === 'discover') return <MatchScreen onSearch={() => setRoute({ name: 'searchActivities' })} state={(filters.radiusEnabled || filters.sort === 'nearest') && !filters.coordinates ? 'location-required' : 'ready'} error={actionError} onMatched={submitJoin} favoriteIds={preferences.data.favoriteIds} onFavorite={toggleFavorite} locationLabel={filters.coordinates ? filters.radiusEnabled ? `Trong ${filters.distance} km` : 'Đã chọn vị trí' : undefined} onFeedback={(activity, outcome) => { void matchFeedback(activity.id, outcome).catch(() => {}); }} activityItems={filteredActivities} onBack={() => { setRoute(null); void discovery.reload(); }} onFilterPress={() => setRoute({ name: 'filter' })} />;
   if (route?.name === 'filter') return <FilterScreen key={preferences.loading ? 'loading' : 'ready'} initialFilters={filters} saving={filterSaving || preferences.loading} saveError={actionError || preferences.error} onApply={next => void applyFilters(next)} onClose={() => setRoute({ name: 'discover' })} />;
   if (route?.name === 'favorites') return <FavoriteActivitiesScreen onChanged={() => void preferences.reload()} onBack={() => setRoute(null)} onOpen={activity => setRoute({ name: 'activityDetail', activity, source: 'discover' })} />;
   if (route?.name === 'pending') return <PendingActivitiesScreen onBack={() => setRoute(null)} onOpen={(activity) => setRoute({ name: 'activityDetail', activity, source: 'pending' })} />;

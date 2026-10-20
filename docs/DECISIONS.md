@@ -1,5 +1,9 @@
 # Decision log
 
+## 2026-10-20 - API-backed partner workspace
+
+Use PartnerPortal at /business and /portal for all authenticated email domains. Keep the existing /staff and /admin workspaces. Remove the obsolete mock dashboards and local mock authentication; retain only their shared visual components. Load event categories from backend validation options and require business-entered event details instead of seeded form values. Permit authenticated workspace users to follow /#/app/ activity links, with backend authorization unchanged.
+
 ## 2026-10-16 - Role-specific web workspaces
 
 Use separate Admin, Staff and Business layout components at /admin, /staff and /business, retaining shared API-backed forms and lists. Resolve the effective role via /api/portal/me (including approved business applications), never trust a client-selected role. Keep backend authorization as the access boundary. The main app gates user onboarding on this lookup and offers retry on network failure. Native privileged users are directed to the web workspace. /portal remains a compatibility entry for partner registration and existing links.
@@ -83,6 +87,29 @@ Use separate Admin, Staff and Business layout components at /admin, /staff and /
 Record decisions here when they materially affect architecture, dependencies,
 security, the data model, or product behavior. Keep the newest decision at the
 top. Small implementation details belong only in `DEVELOPMENT_LOG.md`.
+
+### 2026-10-19 - Connect the merged partner portal and business events to the app
+
+- **Status:** Accepted at the user's request. `origin/htan-ui-web` was merged into `fe-ui2` without conflicts; existing activity/chat work was committed before merging.
+- **Decision:** Reuse the merged portal's visual foundations at `/portal`, with real session/role/application/post APIs. Retain its original mock module as a design preview only. Isolate DOM/CSS imports behind a web platform component so native Expo bundles remain supported.
+- **Decision:** Business applications may be reviewed by Staff/Admin. New portal event posts include schedule, place, capacity, final price, discount percentage and offer terms. Only approved events become app activities, using the server-owned verified business identity and an official confirmed appointment. Legacy text-only announcements stay in the portal feed.
+- **Decision:** Business attendees apply under their own account and await organizer approval. Anonymous reserved seats and host-added friends are disabled for business events on both client and API. Existing group permissions, attendance and review eligibility remain enforced.
+- **Decision:** Chat shows only a state notice; library/menu actions live in the top-right header. The phase timeline stays in host Management. Attendance and Plans use structured cards and explicit controls.
+- **Decision:** Demo support is an opt-in CLI seed plus ordinary API login at `/demo`, not a public seeding endpoint or authentication bypass. Seeded records are identifiable, preserved on reruns and disabled under production NODE_ENV. Keyword search and deep links let two independent browser sessions find the same activity.
+- **Validation:** Business/individual lifecycle browser integration, full backend suite, web smoke, maps/community/trip suites, service tests, TypeScript/ESLint/Expo Doctor and Android/web exports passed. Physical-device testing remains outstanding.
+
+### 2026-10-19 - Restrict the activity timeline to host Management
+
+- **Status:** Accepted at the user's request; supersedes the shared group timeline placement below.
+- **Decision:** Show the stage timeline and host actions inside Management only. Chat displays an informational state notice for host and participants. Do not show the timeline in Plans, Members, progress or summary.
+- **Decision:** Keep member access to progress and summary/reviews through Plans, preserving the existing lifecycle and attendance controls.
+
+### 2026-10-19 - Make activity stages and host actions visible in the group
+
+- **Status:** Accepted at the user's request.
+- **Decision:** Keep a server-derived four-stage timeline above the group tabs and offer the next action directly from chat. Put schedule confirmation/start at the top of Management, with a link from Plans. Use the same controls in standalone host management.
+- **Decision:** Direct running hosts to attendance before completion, with a visible finish action and an explicit unmarked-member warning. Retain the backend's existing permission, confirmation, start and rating rules; this does not require schedule confirmation before starting or prevent completion with unmarked members.
+- **Validation:** Isolated browser integration covers host/member visibility, appointment changes, confirmation persistence, attendance and a real review after completion.
 
 ### 2026-10-16 - Server-backed create drafts and an inline chat attachment panel
 

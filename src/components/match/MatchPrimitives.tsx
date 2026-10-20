@@ -9,13 +9,15 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { colors, radii, shadows, typography } from '../../theme';
 import { Text } from '../LocalizedText';
 import { PreferencesSummary } from '../ActivityChoices';
+import { BusinessIdentity } from '../BusinessIdentity';
 
-export function MatchHeader({ distance = 'Chưa có vị trí', onBack, onFilter }: { distance?: string; onBack: () => void; onFilter: () => void }) {
+export function MatchHeader({ distance = 'Chưa có vị trí', onBack, onFilter, onSearch }: { onSearch?: () => void; distance?: string; onBack: () => void; onFilter: () => void }) {
   return (
     <View>
       <View style={styles.header}>
         <Pressable accessibilityLabel="Quay lại" onPress={onBack} style={styles.headerButton}><Ionicons color={colors.text} name="chevron-back" size={24} /></Pressable>
         <Text style={styles.headerTitle}>Match</Text>
+        {onSearch && <Pressable accessibilityRole="button" accessibilityLabel="Tìm hoạt động" onPress={onSearch} style={styles.headerButton}><Ionicons name="search-outline" color={colors.primary} size={23} /></Pressable>}
         <Pressable accessibilityLabel="Mở bộ lọc" onPress={onFilter} style={styles.headerButton}><Ionicons color={colors.primary} name="options-outline" size={23} /></Pressable>
       </View>
       <View style={styles.contextRow}>
@@ -29,7 +31,7 @@ export function MatchHeader({ distance = 'Chưa có vị trí', onBack, onFilter
 export function ActivityMatchCard({ preview = false, favorite = false, onFavorite, activity, canUndo, onMore, onUndo }: { preview?: boolean; favorite?: boolean; onFavorite?: () => void; activity: Activity; canUndo: boolean; onMore: () => void; onUndo: () => void }) {
   const { language } = useLanguage();
   return (
-    <View style={styles.cardShadow}>
+    <View style={[styles.cardShadow, activity.organizerType === 'business' && { borderWidth: 2, borderColor: '#44A58E', borderRadius: 24 }]}>
       <View style={styles.card}>
         <ImageBackground resizeMode="cover" source={activity.image} style={styles.cover}>
           <View style={styles.coverTop}>
@@ -46,7 +48,7 @@ export function ActivityMatchCard({ preview = false, favorite = false, onFavorit
             <View style={styles.category}><Text style={styles.categoryText}>{activity.category}</Text></View>
             <View style={styles.memberBadge}><Ionicons color={colors.textSecondary} name="people" size={16} /><Text style={styles.memberText}>{activity.members} {language === 'vi' ? 'thành viên' : 'members'}</Text></View>
           </View>
-          <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>{activity.organizerType === 'business' ? 'Doanh nghiệp tổ chức' : 'Cá nhân tổ chức'}</Text>
+          {activity.organizerType === 'business' ? <BusinessIdentity activity={activity} showOffer /> : <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Cá nhân tổ chức</Text>}
           <Text style={styles.activityTitle}>{activity.title}</Text>
           <View style={styles.metaList}>
             <Meta icon="calendar-outline" text={activity.time} />

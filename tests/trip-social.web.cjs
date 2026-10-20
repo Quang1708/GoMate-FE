@@ -99,7 +99,7 @@ const be = name => import(pathToFileURL(beRoot + '/src/' + name + '.js').href);
     assert.equal(await page.getByLabel('Tên người đồng hành 1',{exact:true}).inputValue(),'Lan Anh'); await visible(page,'trip.xls');
     await page.reload(); await visible(page,'Đã khôi phục bản nháp · Bước 3/4'); assert.equal(await page.getByLabel('Thông tin người đồng hành 1',{exact:true}).inputValue(),'Mang máy ảnh'); await visible(page,'trip.xls');
     console.log('PASS companion keyboard entry and account draft restore after navigation/reload, including plan/file');
-    await click(page,'Tiếp tục'); await visible(page,'Bài đăng hiển thị trên Match'); await visible(page,'Travel UI Trip'); await page.getByText('2. Check in bản địa',{exact:true}).waitFor({state:'visible'}); await visible(page,'4/6 thành viên');
+    await click(page,'Tiếp tục'); await visible(page,'Bài đăng hiển thị trên Match'); await visible(page,'Travel UI Trip'); await page.getByText('Check in bản địa',{exact:true}).waitFor({state:'visible'}); await visible(page,'4/6 thành viên');
     assert.equal(await page.getByLabel('Lưu hoạt động yêu thích',{exact:true}).count(),0);
     for (const width of [390,768,1440]) { await page.setViewportSize({width,height:900}); assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)); await page.screenshot({path:join(artifacts,'match-preview-'+width+'.png'),fullPage:true}); }
     const thumbnail = await page.getByLabel('Ảnh hoạt động 1',{exact:true}).boundingBox(); assert.ok(thumbnail.width > 50 && thumbnail.height >= 80);
@@ -119,7 +119,7 @@ const be = name => import(pathToFileURL(beRoot + '/src/' + name + '.js').href);
     await page.screenshot({path:join(artifacts,'manage-390.png'),fullPage:true});
     await click(page,'Mở chat nhóm');
     assert.equal(await page.getByRole('tab',{name:'Quản lý',exact:true}).count(),1);
-    await page.getByRole('tab',{name:'Quản lý',exact:true}).click(); assert.equal(await page.getByText('Quản lý thành viên',{exact:true}).count(),0); await click(page,'Chốt lịch đi'); await click(page,'Xác nhận'); await visible(page,'Đã chốt lịch · Thành viên có thể xem trong Kế hoạch');
+    await page.getByRole('tab',{name:'Quản lý',exact:true}).click(); assert.equal(await page.getByText('Quản lý thành viên',{exact:true}).count(),0); await click(page,'Chốt lịch đi'); await click(page,'Xác nhận'); await page.getByLabel('Tiến trình hoạt động: Đã chốt lịch',{exact:true}).waitFor({state:'visible'});
     await page.getByRole('tab',{name:'Chat',exact:true}).click();
     const composer = page.getByLabel('Tin nhắn',{exact:true});
     const emptyComposer = await composer.boundingBox(); assert.ok(emptyComposer.height >= 40 && emptyComposer.height <= 48);

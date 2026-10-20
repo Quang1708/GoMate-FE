@@ -15,6 +15,7 @@ Sau xác minh, FE tự gọi đăng nhập rồi mở bước hoàn thiện hồ
   quên mật khẩu chưa được nối. Hồ sơ cá nhân đã nối API lấy/sửa và upload ảnh;
   tạo/sửa/xóa, danh sách hoạt động tổ chức, chi tiết và Match đã nối API.
   Nhóm/chat và các mục hoạt động mẫu trên trang chủ vẫn chưa nối đầy đủ.
+Demo hai trình duyệt, portal doanh nghiệp và quy trình staff duyệt bài: [hướng dẫn demo](docs/DEMO_GUIDE.md). Tạo dữ liệu bằng `npm run demo:seed`, mở `/demo` hoặc `/portal` trên web.
 
 Ứng dụng tìm người cùng tham gia một hoạt động cụ thể, được xây dựng bằng React
 Native, Expo SDK 57 và TypeScript. Luồng hiện tại gồm đăng nhập/đăng ký, xác minh

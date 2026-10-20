@@ -12,7 +12,6 @@ export type PersonProfile = {
   verified?: boolean;
   role?: 'host' | 'member';
 };
-
 export const currentUserProfile: PersonProfile = {
   id: 'current-user',
   name: 'Minh',

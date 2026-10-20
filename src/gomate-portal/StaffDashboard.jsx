@@ -3,6 +3,7 @@ import { portalApi } from './portalApi';
 
 export const staffSections = {
   overview: ['Tổng quan', 'Bàn trực điều hành, kiểm duyệt nội dung và hỗ trợ người dùng.', '▦'],
+  applications: ['Duyệt doanh nghiệp', 'Kiểm tra hồ sơ xác minh đối tác.', '◇'],
   posts: ['Bài đăng', 'Xét duyệt nội dung đối tác doanh nghiệp trước khi xuất bản.', '▧'],
   reports: ['Báo cáo', 'Xử lý phản ánh từ cộng đồng và bảo vệ an toàn môi trường kết nối.', '⚑'],
   tickets: ['Hỗ trợ', 'Phản hồi khiếu nại, giải quyết thắc mắc của người dùng & đối tác.', '☏'],
@@ -37,6 +38,7 @@ export function StaffDashboard({ me, onSelect }) {
   }, [retry]);
 
   const queueCards = [
+    { key: 'pendingBusinesses', title: 'Hồ sơ doanh nghiệp chờ duyệt', target: 'applications', icon: '◇', variant: 'warning', badge: 'Xác minh đối tác', hint: 'Xem hồ sơ' },
     {
       key: 'pendingPosts',
       title: 'Bài đăng chờ duyệt',
@@ -84,20 +86,9 @@ export function StaffDashboard({ me, onSelect }) {
           <p>
             Cùng đảm bảo không gian trải nghiệm an toàn, chuẩn mực và hỗ trợ người dùng GoMate tận tâm.
           </p>
-          <div className="staff-duty-status-strip">
-            <span className="staff-duty-indicator">
-              <span className="staff-pulse-dot" /> Ca trực đang mở
-            </span>
-            <span className="staff-duty-divider">•</span>
-            <span>Phân quyền: Chuyên viên vận hành</span>
-            <span className="staff-duty-divider">•</span>
-            <span>Hệ thống: Sẵn sàng</span>
-          </div>
+
         </div>
-        <div className="staff-welcome-badge" aria-hidden="true">
-          <span>DESK</span>
-          <strong>24/7</strong>
-        </div>
+
       </section>
 
       <div className="staff-section-heading">
@@ -115,6 +106,8 @@ export function StaffDashboard({ me, onSelect }) {
             className="gm-btn gm-btn--ghost"
             disabled={loading}
             onClick={() => {
+              setData(null);
+              setUpdated(null);
               setError('');
               setLoading(true);
               setRetry(v => v + 1);
@@ -133,7 +126,7 @@ export function StaffDashboard({ me, onSelect }) {
 
       <div className="staff-queue-grid" aria-busy={loading}>
         {queueCards.map(card => {
-          const count = data ? Number(data[card.key] || 0) : 0;
+          const count = data?.[card.key];
           return (
             <button
               type="button"
@@ -149,7 +142,7 @@ export function StaffDashboard({ me, onSelect }) {
               </div>
               <span className="staff-queue-title">{card.title}</span>
               <strong className="staff-queue-count">
-                {data ? count.toLocaleString('vi-VN') : '—'}
+                {Number.isFinite(count) ? count.toLocaleString('vi-VN') : '—'}
               </strong>
               <div className="staff-queue-footer">
                 <span>{card.hint}</span>
@@ -165,10 +158,13 @@ export function StaffDashboard({ me, onSelect }) {
           <h2>Nghiệp vụ điều hành</h2>
           <p>Truy cập nhanh các phân hệ làm việc</p>
         </div>
-        <span className="staff-count-tag">4 phân hệ chính</span>
+        <span className="staff-count-tag">{queueCards.length} phân hệ</span>
       </div>
 
       <div className="staff-workflow-grid">
+        <button type="button" className="staff-workflow-card" onClick={() => onSelect('applications')}>
+          <div className="staff-workflow-info"><h3>Duyệt hồ sơ doanh nghiệp</h3><p>Xem giấy tờ và xét duyệt hồ sơ từ đối tác.</p></div>
+        </button>
         <button
           type="button"
           className="staff-workflow-card"
@@ -222,32 +218,7 @@ export function StaffDashboard({ me, onSelect }) {
         </button>
       </div>
 
-      <div className="staff-guidelines-box">
-        <h3>Tiêu chuẩn phục vụ & Cam kết vận hành (SLA)</h3>
-        <div className="staff-guidelines-grid">
-          <div className="staff-guideline-item">
-            <span className="staff-guideline-icon">⏱️</span>
-            <div>
-              <strong>Tốc độ phản hồi (SLA)</strong>
-              <p>Mục tiêu tiếp nhận và trả lời thắc mắc trong vòng 15 phút. Ưu tiên các sự cố tài khoản.</p>
-            </div>
-          </div>
-          <div className="staff-guideline-item">
-            <span className="staff-guideline-icon">🛡️</span>
-            <div>
-              <strong>Chuẩn mực cộng đồng</strong>
-              <p>Kiên quyết xử lý hành vi quấy rối, thông tin sai lệch, spam hoặc nội dung không phù hợp.</p>
-            </div>
-          </div>
-          <div className="staff-guideline-item">
-            <span className="staff-guideline-icon">🤝</span>
-            <div>
-              <strong>Đối tác & Thương hiệu</strong>
-              <p>Kiểm tra kỹ thông tin khuyến mãi, bảo đảm quyền lợi người dùng và tôn trọng đối tác.</p>
-            </div>
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 }

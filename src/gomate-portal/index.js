@@ -1,1 +1,1 @@
-export { default, GoMatePortal, LoginPage } from './GoMatePortal';
+export { default, GoMatePortal, LoginPage } from './ConnectedPortal';

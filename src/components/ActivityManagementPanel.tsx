@@ -1,21 +1,23 @@
-import { ComponentProps, useCallback, useRef, useState } from 'react';
+import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './LocalizedText';
 import { RemoteState } from './RemoteState';
 import { GradientButton } from './GradientButton';
+import { ActivityLifecyclePanel } from './ActivityLifecyclePanel';
+import { BusinessIdentity } from './BusinessIdentity';
 import { Activity } from '../data/activities';
-import { ActivityDto, confirmActivitySchedule, decideRequest, deleteActivity, getActivity, listRequests, toActivity, transitionActivity } from '../services/activityApi';
+import { ActivityDto, decideRequest, deleteActivity, getActivity, listRequests, toActivity } from '../services/activityApi';
 import { getSession } from '../services/api';
 import { useRemote } from '../services/useRemote';
 import { CreateActivityScreen } from '../screens/CreateActivityScreen';
 import { colors } from '../theme';
 
 type Icon = ComponentProps<typeof Ionicons>['name'];
-type Props = { activityId: string; onOpenGroup?: (activity: Activity) => void; onMembers?: (activity: Activity) => void; onProgress?: (activity: Activity) => void; onDeleted: () => void; onChanged?: (activity: ActivityDto) => void };
+type Props = { activityId: string; onPlan?: () => void; onOpenGroup?: (activity: Activity) => void; onMembers?: (activity: Activity) => void; onProgress?: (activity: Activity) => void; onDeleted: () => void; onChanged?: (activity: ActivityDto) => void };
 
-export function ActivityManagementPanel({ activityId, onOpenGroup, onMembers, onProgress, onDeleted, onChanged }: Props) {
+export function ActivityManagementPanel({ activityId, onPlan, onOpenGroup, onMembers, onProgress, onDeleted, onChanged }: Props) {
   const load = useCallback(async () => {
     const activity = await getActivity(activityId);
     if (activity.hostId !== getSession()?.user.id) throw new Error('Chỉ host có quyền quản lý hoạt động.');
@@ -23,8 +25,9 @@ export function ActivityManagementPanel({ activityId, onOpenGroup, onMembers, on
   }, [activityId]);
   const remote = useRemote(load, null);
   const [editing, setEditing] = useState(false), [error, setError] = useState(''), [busy, setBusy] = useState(false);
-  const [now] = useState(Date.now);
-  const [confirmation, setConfirmation] = useState<'schedule' | 'start' | 'complete' | 'delete' | null>(null);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 10000); return () => clearInterval(timer); }, []);
+  const [confirmation, setConfirmation] = useState<'delete' | null>(null);
   const locked = useRef(false);
   const row = remote.data?.activity;
   const run = async (action: () => Promise<void>) => {
@@ -34,33 +37,25 @@ export function ActivityManagementPanel({ activityId, onOpenGroup, onMembers, on
     finally { locked.current = false; setBusy(false); }
   };
   const refresh = async () => { await remote.reload(); const fresh = await getActivity(activityId); onChanged?.(fresh); };
-  const upcoming = row?.status === 'published', editable = upcoming && new Date(row!.startsAt).getTime() > now;
+  const editable = row?.status === 'published' && new Date(row.startsAt).getTime() > now;
   const decide = (requestId: string, status: 'approved' | 'rejected') => void run(async () => { await decideRequest(activityId, requestId, status); await refresh(); });
   const confirm = () => void run(async () => {
     if (!row || !confirmation) return;
     if (confirmation === 'delete') { await deleteActivity(activityId); setConfirmation(null); onDeleted(); return; }
-    if (confirmation === 'schedule') { const fresh = await confirmActivitySchedule(activityId, row.version ?? 0); onChanged?.(fresh); await remote.reload(); }
-    else { const fresh = await transitionActivity(activityId, confirmation); onChanged?.(fresh); await remote.reload(); onProgress?.(toActivity(fresh)); }
-    setConfirmation(null);
   });
   const dialog = confirmation && {
-    schedule: ['Chốt lịch đi?', 'Xác nhận thời gian và địa điểm hiện tại cho cả nhóm. Nếu lịch thay đổi, bạn cần chốt lại.'],
-    start: ['Bắt đầu hoạt động?', 'Nhóm vẫn trò chuyện được trước giờ đi. Bắt đầu sẽ mở điểm danh và kết thúc nhận thêm thành viên.'],
-    complete: ['Kết thúc hoạt động?', 'Điểm danh sẽ được lưu lại và không thể chỉnh sửa sau khi kết thúc.'],
     delete: ['Xóa hoạt động?', 'Thành viên sẽ không còn truy cập được hoạt động và chat nhóm. Hành động này không thể hoàn tác.'],
   }[confirmation];
   return <View style={styles.panel}>
     <RemoteState {...remote} onRetry={remote.reload} />
     {row && <>
+      <ActivityLifecyclePanel activity={row} onPlan={onPlan} onChanged={fresh => { remote.setData(data => data ? { ...data, activity: fresh } : data); onChanged?.(fresh); }} onProgress={fresh => onProgress?.(toActivity(fresh))} />
+      {row.organizerType === 'business' && <View style={styles.card}><BusinessIdentity activity={toActivity(row)} details /><Text style={styles.body}>Lịch và ưu đãi đã công bố. Người tham gia cần tự đăng ký và được doanh nghiệp xác nhận; không thêm bạn bè hoặc giữ chỗ ngoài danh sách đăng ký.</Text></View>}
       <View style={styles.overview}><View style={styles.headingRow}><View style={styles.statusDot} /><Text style={styles.eyebrow}>{row.status === 'completed' ? 'ĐÃ KẾT THÚC' : row.status === 'in-progress' ? 'ĐANG DIỄN RA' : 'SẮP DIỄN RA'}</Text><Pressable accessibilityRole="button" accessibilityLabel="Làm mới quản lý" onPress={() => void remote.reload()}><Ionicons name="refresh-outline" size={19} color={colors.primary} /></Pressable></View><Text style={styles.title}>Cùng nhóm sẵn sàng lên đường</Text><View style={styles.stats}><View style={styles.stat}><Text style={styles.statValue}>{row.memberCount}/{row.maxParticipants}</Text><Text style={styles.muted}>Thành viên</Text></View><View style={styles.stat}><Text style={styles.statValue}>{remote.data?.requests.length || 0}</Text><Text style={styles.muted}>Chờ duyệt</Text></View><View style={styles.stat}><Ionicons name={row.scheduleConfirmedAt ? 'calendar' : 'calendar-outline'} size={23} color={colors.primary} /><Text style={styles.muted}>{row.scheduleConfirmedAt ? 'Đã chốt lịch' : 'Chưa chốt lịch'}</Text></View></View></View>
-      {upcoming && <View style={styles.card}><View style={styles.headingRow}><Ionicons name="calendar-outline" size={22} color={colors.primary} /><Text style={styles.sectionTitle}>Lịch hẹn của nhóm</Text></View><Text style={styles.body}>{toActivity(row).time}</Text><Text style={styles.muted}>{row.meetingPoint || row.location}</Text>{row.scheduleConfirmedAt ? <View style={styles.success}><Ionicons name="checkmark-circle" color={colors.success} size={18} /><Text style={{ color: colors.success, flex: 1 }}>Đã chốt lịch · Thành viên có thể xem trong Kế hoạch</Text></View> : <GradientButton disabled={busy || !editable} label="Chốt lịch đi" onPress={() => setConfirmation('schedule')} />}</View>}
       <View style={styles.card}>
         {onOpenGroup && <ManagementRow icon="chatbubbles-outline" title="Mở chat nhóm" detail="Trao đổi cùng thành viên ngay từ bây giờ" onPress={() => onOpenGroup(toActivity(row))} />}
         {onMembers && <ManagementRow icon="people-outline" title="Quản lý thành viên" detail="Thêm bạn bè, xem hồ sơ và quản lý nhóm" onPress={() => onMembers(toActivity(row))} />}
         {editable && row.organizerType !== 'business' && <ManagementRow icon="create-outline" title="Chỉnh sửa hoạt động" detail="Cập nhật bài đăng, thời gian và kế hoạch" disabled={busy} onPress={() => setEditing(true)} />}
-        {upcoming && <ManagementRow icon="play-circle-outline" title="Bắt đầu hoạt động" detail="Mở điểm danh khi nhóm sẵn sàng" disabled={busy} onPress={() => setConfirmation('start')} />}
-        {row.status === 'in-progress' && <><ManagementRow icon="checkbox-outline" title="Điểm danh & cập nhật" detail="Ghi nhận có mặt, đến muộn hoặc vắng" onPress={() => onProgress?.(toActivity(row))} /><ManagementRow icon="flag-outline" title="Kết thúc hoạt động" detail="Hoàn tất điểm danh và xem tổng kết" disabled={busy} onPress={() => setConfirmation('complete')} /></>}
-        {row.status === 'completed' && <ManagementRow icon="ribbon-outline" title="Xem tổng kết" detail="Điểm danh và lịch sử hoạt động" onPress={() => onProgress?.(toActivity(row))} />}
       </View>
       <View style={styles.headingRow}><Text style={styles.sectionTitle}>Yêu cầu tham gia</Text><View style={styles.count}><Text style={{ color: colors.primary, fontWeight: '700' }}>{remote.data?.requests.length || 0}</Text></View></View>
       {!remote.data?.requests.length ? <View style={[styles.card, styles.empty]}><View style={styles.emptyIcon}><Ionicons name="people-outline" size={26} color={colors.primary} /></View><Text style={styles.sectionTitle}>Chưa có yêu cầu mới</Text><Text style={[styles.muted, { textAlign: 'center' }]}>Khi có người muốn đồng hành, bạn có thể xem và duyệt tại đây.</Text></View> : remote.data.requests.map(request => <View style={styles.request} key={request.id}><View style={styles.initial}><Text style={{ color: colors.primary, fontWeight: '800' }}>{request.name.slice(0, 1).toUpperCase()}</Text></View><View style={{ flex: 1, gap: 4 }}><Text style={styles.sectionTitle}>{request.name}</Text><Text style={styles.muted}>Muốn tham gia nhóm</Text><View style={styles.requestActions}><Pressable accessibilityRole="button" disabled={busy || !editable} onPress={() => decide(request.id, 'rejected')} style={styles.secondary}><Text style={{ color: colors.textSecondary }}>Từ chối</Text></Pressable><Pressable accessibilityRole="button" disabled={busy || !editable || row.memberCount >= row.maxParticipants} onPress={() => decide(request.id, 'approved')} style={styles.approve}><Text style={{ color: colors.white, fontWeight: '700' }}>Duyệt</Text></Pressable></View>{!editable || row.memberCount >= row.maxParticipants ? <Text style={styles.muted}>{!editable ? 'Hoạt động không còn nhận thành viên.' : 'Nhóm đã đủ chỗ.'}</Text> : null}</View></View>)}

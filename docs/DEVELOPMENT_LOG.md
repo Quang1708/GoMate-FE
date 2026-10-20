@@ -1,5 +1,52 @@
 # Development log
 
+## 2026-10-20 - Complete API-backed staff workspace
+
+### Summary
+
+- Remove unsupported fixed shift, readiness, 24/7 and SLA claims. Render missing or failed metrics as unavailable instead of zero and clear old metrics when refreshing.
+- Add staff business-application navigation and pending counts using existing authenticated APIs. Display event schedule, location, cost, itinerary and offer terms before moderation.
+- Initialize support reply status from the persisted ticket so closed tickets are not silently reopened.
+
+### Files changed
+
+- src/gomate-portal/StaffDashboard.jsx; src/gomate-portal/ConnectedPortal.jsx; tests/staff.web.cjs; src/gomate-portal/README.md.
+
+### Verification
+
+- npm.cmd run typecheck, npm.cmd run lint, npm.cmd run build: Passed.
+- node tests/staff.web.cjs: Passed with isolated MongoDB and real HTTP APIs: metrics, application and event approval, published feed, report resolution, support persistence/status, failed metrics and retry, mobile width. Inspected desktop screenshot.
+- Backend portal tests: 7 passed including staff aggregate assertions.
+- npx.cmd --no-install expo-doctor: Blocked by npm registry EACCES.
+
+### Remaining work
+
+- Run expo-doctor with registry access. Reload the backend if running without watch to pick up the additional metric.
+
+## 2026-10-20 - Connect partner workspace and remove mock business data
+
+### Summary
+
+- Serve the API-backed partner workspace at /business and /portal without demo-email routing. Preserve backend role enforcement and allow activity deep links for workspace users.
+- Remove mock accounts, login, dashboards, posts, chat and fabricated metrics from GoMatePortal; keep shared visual components.
+- Fetch categories from /portal/options; leave event prices, capacity, location, dates and discounts blank and submit the business-entered itinerary. Add API-backed support and subscription views, loading/error states and session-expiry handling.
+
+### Files changed
+
+- App.tsx; src/gomate-portal/{PartnerPortal,ConnectedPortal,GoMatePortal}.jsx; src/gomate-portal/index.js and README.md; tests/business-demo.web.cjs; docs/DECISIONS.md.
+
+### Verification
+
+- npm.cmd run typecheck, npm.cmd run lint, npm.cmd run build: Passed.
+- npm.cmd run test:business:web: Passed against isolated MongoDB and real API; verified application review, /business entry, empty defaults, custom itinerary persistence, event publication, support persistence after reload, membership/chat and responsive layouts. Inspected generated mobile screenshot.
+- Backend portal and business-event tests: 8 passed; options contract also passed after adding its assertion.
+- git diff --check: Passed for frontend.
+- npx.cmd expo-doctor: Could not complete; npm registry access failed with EACCES in this environment.
+
+### Remaining work
+
+- Run expo-doctor when npm registry access is available. Explicit /demo accounts remain test fixtures using real authentication; no production database records were deleted.
+
 ## 2026-10-16 - Allow immediate Admin role assignment
 
 ### Summary
@@ -319,6 +366,80 @@
 
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
+
+## 2026-10-19 - Merge partner web UI, improve group tools and ship a real business demo
+
+### Summary
+
+- Commit prior lifecycle work, then merge `origin/htan-ui-web` into `fe-ui2` without conflicts. Reuse its portal design foundations in a live `/portal` workspace; isolate web DOM/CSS from native bundles and keep the original mock module as a visual preview.
+- Move the shared-content library to the top-right chat header and add working menu actions for plans, members, host management, refresh and link sharing. Preserve composer contents and host-only phase timelines.
+- Replace plain attendance controls with progress/counts, filters, avatars/status chips and explicit selected states. Redesign Plans with appointment, price/roster, itinerary and document cards, retaining versioned editing/downloads.
+- Add verified business offer identity/green card borders, discount percentages and terms. Connect staff-reviewed events to app discovery/membership/chat. Use official schedules and disable anonymous companions/host-added friends for business groups on both client/API.
+- Add independent-session `/demo` login and setup guide, idempotent local demo seed, activity keyword search and shareable links. Seed only demo-owned accounts/data; use normal backend authorization.
+
+### Files changed
+
+- `App.tsx`, `package.json`, `README.md`, `src/gomate-portal/*`, `src/components/{ChatHeaderActions,AttendanceRoster,PlanOverview,BusinessIdentity,WebWorkspace*}.tsx`.
+- Chat/group/attendance/plan/detail/search/Match screens and components, activity DTO mapping/model, `tests/{business-demo,activity-lifecycle,trip-social}.web.cjs`.
+- `docs/{DEMO_GUIDE,ACTIVITY_CHAT_AND_MANAGEMENT,DECISIONS,DEVELOPMENT_LOG}.md`; companion BE changes are on its `fe-ui2` branch.
+
+### Verification
+
+- Full BE suite: 103/103 passed, including verification/publication, consumer spoof prevention, guest/friend restrictions, ordinary join approval/chat and attendance/rating. Fixed local dependency installation (missing Leaflet); no source workaround for the previous map timeout.
+- `npm run test:web`, `test:lifecycle:web`, `test:trip:web`, `test:community:web`, `test:maps:web`, `test:business:web`, `test:integration`: Passed. Nine native-session/API-URL/profile-date checks passed. Browser suites reported no runtime errors.
+- `npm run typecheck`, `npm run lint`: Passed; `npx expo-doctor`: 21/21. Expo web and Android exports passed.
+- Business browser integration covered new application → staff approval → event/offer creation → publication → searchable verified card → join approval → cross-session chat; checked 360/390/768/1440 px layouts and header library/menu.
+- Inspected attendance, business plan, Chat and mobile/desktop portal screenshots. Actual installed Chrome and Edge independently logged into host/member accounts and found demo activities against the local running API. Repeated local seed preserved the same future sample activity IDs. `git diff --check`: Passed.
+
+### Remaining work
+
+- Physical iOS/Android keyboard/share-sheet verification. Prices/offers remain informational; there is no payment flow. Legacy text-only business announcements remain portal-only until recreated with event details.
+
+## 2026-10-19 - Keep the timeline inside host Management
+
+### Summary
+
+- Move the activity timeline into host Management only. Chat now shows a compact informational notice for both host and members, with no timeline or lifecycle action buttons. Remove timelines from progress and summary as well.
+- Keep progress and summary/review access in Plans so participants can still follow and rate the activity. Preserve schedule confirmation, start, attendance and completion in host controls.
+
+### Files changed
+
+- `src/screens/{GroupScreen,ActivityProgressScreen,ActivitySummaryScreen}.tsx`, `src/components/{ActivityManagementPanel,ActivityPlanPanel}.tsx`, `src/i18n/LanguageContext.tsx`.
+- `tests/activity-lifecycle.web.cjs`, `docs/ACTIVITY_CHAT_AND_MANAGEMENT.md`, `docs/DECISIONS.md`.
+
+### Verification
+
+- `npm run typecheck`, `npm run lint`: Passed. `npx expo-doctor`: 21/21 passed. Expo web export: Passed.
+- `npm run test:lifecycle:web`: Passed: timeline visible only in host Management across all phases; informational Chat notices for both roles; no timeline in Plans, Members, attendance or summary; rating remains accessible through Plans. Checked chat/composer at 360/390/768/1440 px and inspected Chat/Management screenshots.
+- `npm run test:trip:web`: Passed, including schedule confirmation, chat/media/composer, shared plans/Excel and drafts. Both suites reported no browser runtime errors. `git diff --check`: Passed.
+
+### Remaining work
+
+- Physical iOS/Android device verification.
+
+## 2026-10-19 - Visible activity timeline and next host actions
+
+### Summary
+
+- Keep a four-stage, API-backed timeline above the group tabs. Offer schedule confirmation/start directly from chat and put the next host action at the top of Management. Link Plans to these controls and refresh group state after saving a plan.
+- Direct running hosts to attendance and a visible finish action, warn about unmarked members at confirmation, and retain the timeline in progress/summary. Preserve existing server rules and distinguish schedules that were never confirmed. Include English UI translations.
+
+### Files changed
+
+- `src/components/{ActivityLifecyclePanel,ActivityManagementPanel,ActivityPlanPanel}.tsx`.
+- `src/screens/{GroupScreen,ActivityProgressScreen,ActivitySummaryScreen}.tsx`, `src/i18n/LanguageContext.tsx`.
+- `tests/activity-lifecycle.web.cjs`, `tests/trip-social.web.cjs`, `package.json`, `docs/ACTIVITY_CHAT_AND_MANAGEMENT.md`, `docs/DECISIONS.md`.
+
+### Verification
+
+- `npm run typecheck`, `npm run lint`: Passed. `npx expo-doctor`: 21/21 checks passed. Expo web export: Passed.
+- `npm run test:lifecycle:web`: Passed with temporary MongoDB and host/member/joiner browser sessions: two initial account members, approval/chat, plan save, schedule confirm/cancel/reload/reset, start/cancel, attendance warning/persistence, completion and real rating. Checked 360/390/768/1440 px layouts and composer visibility; no browser runtime errors.
+- `npm run test:trip:web`: Passed after updating the schedule assertion to the new timeline; includes plan/Excel, shared chat/media, attachments and draft regressions. `npm run test:community:web`: Passed, including persisted ratings and host reviews.
+- Reviewed mobile screenshots for chat timeline, host management, attendance and summary. `git diff --check`: Passed. Local frontend and API health returned HTTP 200.
+
+### Remaining work
+
+- Physical iOS/Android device verification. The full web smoke suite has a previously observed unrelated map iframe timeout; targeted lifecycle and related browser suites passed.
 
 ## 2026-10-16 - Account drafts, companion typing, inline chat tools and member portraits
 

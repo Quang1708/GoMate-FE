@@ -81,7 +81,7 @@ export function MembersPanel({ activity, onLeft }: { activity: Activity; onLeft:
   const [profileId, setProfileId] = useState<string | null>(null);
   return <View><Text style={styles.title}>Thành viên ({remote.data.length + reservedSeats})</Text>
     {reservedSeats > 0 && <GroupCompanions key={`${activity.id}-${latest?.version ?? 0}`} activityId={activity.id} editable={canChange && isHost} onSaved={() => void remote.reload()} />}
-    {canChange && isHost && <AddActivityFriends activityId={activity.id} onAdded={() => void remote.reload()} />}
+    {canChange && isHost && activity.organizerType !== 'business' && <AddActivityFriends activityId={activity.id} onAdded={() => void remote.reload()} />}
     <RemoteState {...remote} onRetry={remote.reload} />
     {action.error ? <Text>{action.error}</Text> : null}
     {!remote.loading && !remote.error && remote.data.map(member => <View key={member.userId} style={styles.card}>

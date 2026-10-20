@@ -6,6 +6,7 @@ import { Activity } from '../data/activities';
 import { useLanguage } from '../i18n/LanguageContext';
 import { colors, radii, typography } from '../theme';
 import { Text } from './LocalizedText';
+import { BusinessIdentity } from './BusinessIdentity';
 
 type SwipeActivityCardProps = {
   activity: Activity;
@@ -25,6 +26,7 @@ export function SwipeActivityCard({ activity, height, fullScreen = false }: Swip
           </View>
 
           <View style={styles.summary}>
+            <BusinessIdentity activity={activity} />
             <Text style={styles.title}>{activity.title}</Text>
             <View style={styles.hostRow}>
               <View style={styles.hostAvatar}><Text style={styles.hostInitial}>{activity.host.charAt(0)}</Text></View>

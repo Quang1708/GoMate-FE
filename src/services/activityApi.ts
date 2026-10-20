@@ -5,6 +5,7 @@ import { imageUrl } from './profileService';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'left' | 'removed';
 export type ActivityDto = {
+  business?: Activity['business'];
   memberAvatars?: { userId: string; name: string; avatarUrl?: string | null }[];
   hostRating?: number | null; hostRatingCount?: number; hostCompletedActivities?: number;
   scheduleConfirmedAt?: string | null; scheduleConfirmedBy?: string | null;
@@ -34,6 +35,7 @@ export async function allPages<T>(path: string): Promise<T[]> {
 
 export function toActivity(row: ActivityDto, requestStatus?: RequestStatus): Activity {
   return {
+    business: row.business,
     memberAvatars: row.memberAvatars, version: row.version, hostAvatarUrl: row.hostAvatarUrl, companions: row.companions, reservedSeats: row.reservedSeats ?? 0, costNote: row.costNote || '', itinerary: row.itinerary || [], planLink: row.planLink || '', planFile: row.planFile,
     organizerType: row.organizerType ?? 'personal', coordinates: row.coordinates ? { longitude: row.coordinates.coordinates[0], latitude: row.coordinates.coordinates[1] } : null,
     id: row.id, hostId: row.hostId, title: row.title, host: row.hostName, location: row.location,

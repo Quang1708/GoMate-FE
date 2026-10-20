@@ -1,11 +1,10 @@
 import PortalEntry from './src/PortalEntry';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { api, getSession, initializeSession } from './src/services/api';
+import { api, getSession, initializeSession, setUnauthorizedHandler } from './src/services/api';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { setUnauthorizedHandler } from './src/services/api';
 import { LanguageProvider } from './src/i18n/LanguageContext';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { MainApp } from './src/screens/MainApp';
@@ -13,13 +12,18 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { OnboardingPermissionsScreen } from './src/screens/OnboardingPermissionsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
+import { WebWorkspace } from './src/components/WebWorkspace';
 
 function pendingEmail() { try { return sessionStorage.getItem('gomate.verificationEmail') || ''; } catch { return ''; } }
 
 type Screen = 'onboarding' | 'auth' | 'verify' | 'profile' | 'permissions' | 'main';
 
 export default function App() {
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && /^\/(portal|admin|staff|business)(\/|$)/.test(window.location.pathname)) return <PortalEntry />;
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const pathname = window.location.pathname.replace(/\/$/, '');
+    if (['/portal', '/business'].includes(pathname)) return <WebWorkspace mode="portal" />;
+    if (/^\/(portal|admin|staff|business)(\/|$)/.test(window.location.pathname)) return <PortalEntry />;
+  }
   return <UserApp />;
 }
 
@@ -43,6 +47,8 @@ function UserApp() {
     return () => { window.removeEventListener('popstate', restore); window.removeEventListener('hashchange', restore); };
   }, []);
   useEffect(() => { setUnauthorizedHandler(() => setScreen('auth')); return () => setUnauthorizedHandler(); }, []);
+
+  if (Platform.OS === 'web' && ['/portal', '/demo'].includes(window.location.pathname.replace(/\/$/, ''))) return <WebWorkspace mode={window.location.pathname.startsWith('/portal') ? 'portal' : 'demo'} />;
 
   return (
     <SafeAreaProvider>
@@ -83,11 +89,11 @@ function RoleGate({ onLogout }: { onLogout: () => void }) {
   const [ready, setReady] = useState(false), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   useEffect(() => {
     let alive = true;
-    api<{ role: string }>('/portal/me').then(user => {
+    api<{ role: string; email?: string }>('/portal/me').then(user => {
       if (!alive) return;
-      if (Platform.OS === 'web' && ['admin', 'staff', 'business'].includes(user.role)) {
+      if (Platform.OS === 'web' && ['admin', 'staff', 'business'].includes(user.role) && !window.location.hash.startsWith('#/app/')) {
         window.location.replace('/' + user.role);
-      } else if (['admin', 'staff', 'business'].includes(user.role)) {
+      } else if (['admin', 'staff', 'business'].includes(user.role) && Platform.OS !== 'web') {
         setError('Vui lòng mở trang /' + user.role + ' trên website GoMate để sử dụng không gian làm việc.');
       } else setReady(true);
     }).catch(reason => { if (alive) setError(reason.message); });
