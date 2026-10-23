@@ -3,6 +3,112 @@
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
 
+## 2026-10-23 - Expand Admin business verification and staff review
+
+### Summary
+
+- Add an Admin business application table and detail modal for company identity, tax ID, address, representative contacts, license document download, review notes, and decisions.
+- Add a Business Staff approvals table with group assignments, pending/approved/rejected filters, and mock approve/reject actions.
+- Keep the existing Staff reviewer view and API-backed business application decisions.
+
+### Files changed
+
+- `src/gomate-portal/AdminBusinessReview.jsx`
+- `src/gomate-portal/ConnectedPortal.jsx`
+- `src/gomate-portal/connected-portal.css`
+- `docs/DEVELOPMENT_LOG.md`
+
+### Verification
+
+- `npm run typecheck`: Passed.
+- `npm run lint`: Passed.
+- `git diff --check`: Passed.
+
+### Remaining work
+
+- The current application API does not persist tax ID, address, or representative fields, so the Admin view displays those details when supplied and indicates when they are absent. Business Staff approval requests and decisions are mock state until a backend endpoint is available.
+
+## 2026-10-23 - Add active campaign and group dashboard
+
+### Summary
+
+- Add an Active Campaign / Group Dashboard for Business operations with group selection, deposit progress, paid/pending member tracking, total collected deposits, and schedule readiness.
+- Add an interactive Lịch trình timeline builder with add/edit/delete, reorder controls, notes, and quick-select Location Library pins.
+- Add Special Offer notification composition, preview, recipient count, send feedback, and recent notification history.
+
+### Files changed
+
+- `src/gomate-portal/ActiveCampaignDashboard.jsx`
+- `src/gomate-portal/ConnectedPortal.jsx`
+- `src/gomate-portal/connected-portal.css`
+- `docs/DEVELOPMENT_LOG.md`
+
+### Verification
+
+- `npm run typecheck`: Passed.
+- `npm run lint`: Passed.
+- `git diff --check`: Passed.
+- `npx expo-doctor`: Existing baseline remains 20/21 checks; `expo`, `expo-location`, and `expo-sharing` have patch versions older than the SDK expectation.
+
+### Remaining work
+
+- Deposit records, itinerary edits, and notifications are mock Business/Business Staff state; the current portal API has no group-management, payment, or notification endpoint.
+
+## 2026-10-22 - Add Business Staff and multi-group post tools
+
+### Summary
+
+- Add Business Staff account request UI with contact details, group assignments, edit/delete actions, and the explicit Pending Admin (Minh) Approval status.
+- Replace the Business create-post screen with one promotional post and multiple separately configured group drafts, including Location Library selection and per-person deposit amounts.
+- Keep generated group and staff account records in mock frontend state; submit the main post through the existing portal API.
+
+### Files changed
+
+- `src/gomate-portal/BusinessStaffManagement.jsx`
+- `src/gomate-portal/MultiGroupPostComposer.jsx`
+- `src/gomate-portal/ConnectedPortal.jsx`
+- `src/gomate-portal/connected-portal.css`
+- `docs/DEVELOPMENT_LOG.md`
+
+### Verification
+
+- `npm run typecheck`: Passed.
+- `npm run lint`: Passed.
+- `npx expo-doctor`: 20/21 checks passed; the existing `expo`, `expo-location`, and `expo-sharing` patch versions do not match the expected SDK patches.
+- `git diff --check`: Passed.
+
+### Remaining work
+
+- Business Staff accounts, generated groups, and deposit configuration are not persisted by the current portal API; only the promotional post is submitted to the supported endpoint.
+
+## 2026-10-22 - Expand business verification and add location library
+
+### Summary
+
+- Expand the business verification form with tax ID, detailed address, license upload, and representative contact details while keeping the existing application API payload compatible.
+- Add a Business-only Location Library with mock address search/pinning, branch add/edit/delete, and saved-location reuse in event creation.
+
+### Files changed
+
+- `src/gomate-portal/ConnectedPortal.jsx`
+- `src/gomate-portal/BusinessVerificationForm.jsx`
+- `src/gomate-portal/LocationLibrary.jsx`
+- `src/gomate-portal/connected-portal.css`
+- `tests/business-demo.web.cjs`
+- `docs/DEVELOPMENT_LOG.md`
+
+### Verification
+
+- `npm run typecheck`: Passed.
+- `npm run lint`: Passed.
+- `npm run test:business:web`: Could not start; the sibling `GoMate-BE` checkout is missing `src/database/workshop-demo.js`.
+- `npx expo-doctor`: 20/21 checks passed. The existing Expo SDK patch versions for `expo`, `expo-location`, and `expo-sharing` do not match the currently expected patches.
+- `git diff --check`: Passed after the final UI and test edits.
+
+### Remaining work
+
+- Verification details beyond company/category/website/license and all branch locations are mock frontend state; the current portal API does not persist those added fields or locations. `useMapAPI` is a local mock and does not call a live map provider.
+
 ## 2026-10-19 - Merge partner web UI, improve group tools and ship a real business demo
 
 ### Summary
