@@ -3,6 +3,32 @@
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
 
+## 2026-10-26 - Merge tan-business into fe-ui2
+
+### Summary
+
+- Fast-forward `fe-ui2` from `4562592` to `a1ab937` using `origin/tan-business`; no conflicts.
+- Integrate the business portal verification, staff review, location library, campaign dashboard, and multi-group composer work.
+
+### Files changed
+
+- `src/gomate-portal/{ActiveCampaignDashboard,AdminBusinessReview,BusinessStaffManagement,BusinessVerificationForm,ConnectedPortal,LocationLibrary,MultiGroupPostComposer}.jsx`
+- `src/gomate-portal/connected-portal.css`
+- `tests/business-demo.web.cjs`
+- `docs/DEVELOPMENT_LOG.md`
+
+### Verification
+
+- `npm run typecheck`: Passed.
+- `npm run lint`: Passed.
+- `git diff --check`: Passed.
+- `git merge-base --is-ancestor origin/tan-business HEAD`: Passed.
+- `npx expo-doctor`: 20/21 checks passed; dependency check reports patch mismatches for expo (57.0.30 versus ~57.0.31), expo-location (57.0.21 versus ~57.0.22), and expo-sharing (57.0.23 versus ~57.0.24).
+
+### Remaining work
+
+- Review the Expo patch updates separately; dependencies were not changed as part of this branch merge.
+
 ## 2026-10-23 - Expand Admin business verification and staff review
 
 ### Summary
