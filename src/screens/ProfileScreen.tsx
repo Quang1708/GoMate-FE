@@ -1,4 +1,5 @@
 import { ComponentProps, useState } from 'react';
+import { useFeedbackState } from '../services/feedback';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,10 +31,17 @@ export function ProfileScreen({ onFinish, onSkip }: { onFinish: () => void; onSk
   const [location, setLocation] = useState('Ho Chi Minh City');
   const [selected, setSelected] = useState<Set<string>>(() => new Set(['Coffee', 'Travel']));
   const [avatarUri, setAvatarUri] = useState<string>();
+  const [, setPhotoError] = useFeedbackState('');
 
   const pickAvatar = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], mediaTypes: ['images'], quality: 0.85 });
-    if (!result.canceled) setAvatarUri(result.assets[0].uri);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], mediaTypes: ['images'], quality: 0.85, base64: true });
+      if (!result.canceled) {
+        const asset = result.assets[0], value = asset.base64;
+        if (!value || (asset.fileSize ?? 0) > 10 * 1024 * 1024 || value.length * 3 / 4 - (value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0) > 10 * 1024 * 1024) throw new Error('Mỗi ảnh tối đa 10 MB.');
+        setAvatarUri(asset.uri);
+      }
+    } catch (reason) { setPhotoError(reason instanceof Error ? reason.message : 'Không chọn được ảnh.'); }
   };
 
   const toggle = (label: string) => setSelected((current) => { const next = new Set(current); if (next.has(label)) next.delete(label); else next.add(label); return next; });

@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Text } from './LocalizedText';
@@ -5,7 +6,7 @@ import { blockUser } from '../services/communityService';
 import { getSession } from '../services/api';
 import { colors } from '../theme';
 export function BlockUserButton({ userId, onBlocked }: { userId: string; onBlocked: () => void }) {
-  const [confirm, setConfirm] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [confirm, setConfirm] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('');
   const locked = useRef(false);
   if (getSession()?.user.id === userId) return null;
   const block = async () => { if (locked.current) return; locked.current = true; setBusy(true); setError(''); try { await blockUser(userId); onBlocked(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không chặn được tài khoản'); } finally { locked.current = false; setBusy(false); } };

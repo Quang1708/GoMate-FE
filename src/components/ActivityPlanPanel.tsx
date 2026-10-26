@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Text } from './LocalizedText';
@@ -16,7 +17,7 @@ const displayed = (iso: string) => { const [year, month, day] = local(iso).slice
 export function ActivityPlanPanel({ activityId, onChanged, onManage, onProgress }: { activityId: string; onChanged?: (activity: ActivityDto) => void; onManage?: () => void; onProgress?: (activity: ActivityDto) => void }) {
   const loader = useCallback(() => getActivity(activityId), [activityId]);
   const remote = useRemote(loader, null);
-  const [draft, setDraft] = useState<PlanDraft | null>(null), [editingVersion, setEditingVersion] = useState(0), [busy, setBusy] = useState(false), [fileBusy, setFileBusy] = useState(false), [error, setError] = useState('');
+  const [draft, setDraft] = useState<PlanDraft | null>(null), [editingVersion, setEditingVersion] = useState(0), [busy, setBusy] = useState(false), [fileBusy, setFileBusy] = useState(false), [error, setError] = useFeedbackState('');
   const lock = useRef(false);
   const row = remote.data;
   const edit = () => {

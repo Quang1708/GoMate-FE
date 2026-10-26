@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { placeRegionFields } from '../services/mapsService';
 import { ComponentProps, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
@@ -61,7 +62,7 @@ export function FilterScreen(props: FilterScreenProps) { return <FilterSheet {..
 
 export function FilterSheet({ saving = false, saveError, initialFilters = defaultActivityFilters, onApply, onClose }: FilterScreenProps) {
   const [filters, setFilters] = useState<ActivityFilters>(initialFilters);
-  const [error, setError] = useState('');
+  const [error, setError] = useFeedbackState('');
   const apply = () => {
     if (filters.dateFrom && filters.dateTo && dateToIso(filters.dateFrom) > dateToIso(filters.dateTo)) { setError('Ngày kết thúc không được trước ngày bắt đầu.'); return; }
     if (filters.fromTime && filters.toTime && filters.fromTime > filters.toTime) { setError('Giờ kết thúc không được trước giờ bắt đầu.'); return; }

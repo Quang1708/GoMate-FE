@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { GoogleLoginButton } from '../components/GoogleLoginButton';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -33,7 +34,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
 
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useFeedbackState('');
   const [resendSeconds, setResendSeconds] = useState(0);
   useEffect(() => {
     if (!resendSeconds) return;

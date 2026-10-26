@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +9,7 @@ import { ItineraryStep, pickPlanFile, PlanDraft } from '../services/planService'
 import { colors } from '../theme';
 
 export function TripPlanEditor({ value, onChange, startDate, endDate, startTime = '09:00', endTime = '18:00', onBusyChange }: { value: PlanDraft; onChange: (patch: Partial<PlanDraft>) => void; startDate: string; endDate: string; startTime?: string; endTime?: string; onBusyChange?: (busy: boolean) => void }) {
-  const [expanded, setExpanded] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(''), [error, setError] = useFeedbackState(''), [busy, setBusy] = useState(false);
   const fileLock = useRef(false);
   const patch = (id: string, fields: Partial<ItineraryStep>) => onChange({ itinerary: value.itinerary.map(step => step.id === id ? { ...step, ...fields } : step) });
   const add = () => {

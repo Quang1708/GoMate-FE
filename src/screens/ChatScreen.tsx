@@ -1,4 +1,5 @@
 import { ChatAttachmentPanel, ChatMessageContent, SharedChatLibrary } from '../components/ChatContent';
+import { useFeedbackState } from '../services/feedback';
 import { ChatAttachment, ChatLocation } from '../services/chatContent';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -20,7 +21,7 @@ export function ChatScreen({ conversation, onBack, error, embedded = false, refr
   useEffect(() => { const subscription = Keyboard.addListener('keyboardDidShow', event => setKeyboardHeight(Math.max(210, Math.min(event.endCoordinates.height, 320)))); return () => subscription.remove(); }, []);
   const [blocked, setBlocked] = useState(false), [retry, setRetry] = useState(0);
   const [message, setMessage] = useState(''), [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(''), [sendError, setSendError] = useState(''), [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(''), [sendError, setSendError] = useFeedbackState(''), [sending, setSending] = useState(false);
   const [meta, setMeta] = useState(conversation), [cursor, setCursor] = useState<string | null>(null), [olderLoading, setOlderLoading] = useState(false);
   const lock = useRef(false), attempt = useRef<{ text: string; id: string } | null>(null), scroll = useRef<ScrollView>(null), follow = useRef(true);
   const merge = useCallback((rows: ChatMessage[]) => setMessages(current => [...new Map([...current, ...rows].map(item => [item.id, item])).values()].sort((a, b) => a.id.localeCompare(b.id))), []);

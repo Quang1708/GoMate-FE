@@ -25,7 +25,10 @@ let generation = 0;
 let storageQueue: Promise<void> = Promise.resolve();
 let onUnauthorized: (() => void) | undefined;
 export const getSession = () => session;
+const sessionListeners = new Set<() => void>();
+export function subscribeSession(listener: () => void) { sessionListeners.add(listener); return () => { sessionListeners.delete(listener); }; }
 export const setSession = (value: Session | null) => { session = value; generation++;
+  sessionListeners.forEach(listener => listener());
   if (Platform.OS === 'web') try {
     if (value) localStorage.setItem(sessionKey, JSON.stringify(value)); else localStorage.removeItem(sessionKey);
   } catch { /* Storage can be disabled by the browser. */ }
@@ -52,6 +55,12 @@ export async function initializeSession() {
   // MainApp checks the restored session against BE; network failure keeps a retry path.
 }
 export const setUnauthorizedHandler = (handler?: () => void) => { onUnauthorized = handler; };
+if (Platform.OS === 'web' && typeof window !== 'undefined') window.addEventListener('storage', event => {
+  if (event.key !== sessionKey && event.key !== null) return;
+  session = restoreSession(); generation++;
+  sessionListeners.forEach(listener => listener());
+  if (!session) onUnauthorized?.();
+});
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message); }
@@ -67,8 +76,10 @@ export async function api<T>(path: string, options: RequestInit & { timeoutMs?: 
       headers: { Accept: 'application/json', ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers },
     });
+    if (token !== session?.accessToken) throw new ApiError('Phiên đăng nhập đã thay đổi. Vui lòng thử lại.', 409);
     if (response.status === 204) return undefined as T;
     const payload = await response.json().catch(() => null);
+    if (token !== session?.accessToken) throw new ApiError('Phiên đăng nhập đã thay đổi. Vui lòng thử lại.', 409);
     if (!response.ok) {
       if (response.status === 401 && token && session?.accessToken === token) { setSession(null); onUnauthorized?.(); }
       throw new ApiError(payload?.error || `Yêu cầu thất bại (${response.status})`, response.status);

@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +13,7 @@ import { colors } from '../theme';
 export function RouteMap({ point }: { point: Coordinates }) { return <RouteMapContent key={`${point.latitude},${point.longitude}`} point={point} />; }
 function RouteMapContent({ point }: { point: Coordinates }) {
   const config = useRemote<MapsConfig | null>(getMapsConfig, null);
-  const [mode, setMode] = useState<'DRIVE' | 'WALK'>('DRIVE'), [busy, setBusy] = useState(false), [error, setError] = useState(''), [route, setRoute] = useState<MapRoute | null>(null), [origin, setOrigin] = useState<Coordinates | null>(null);
+  const [mode, setMode] = useState<'DRIVE' | 'WALK'>('DRIVE'), [busy, setBusy] = useState(false), [error, setError] = useFeedbackState(''), [route, setRoute] = useState<MapRoute | null>(null), [origin, setOrigin] = useState<Coordinates | null>(null);
   const lock = useRef(false), alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const calculate = async () => {

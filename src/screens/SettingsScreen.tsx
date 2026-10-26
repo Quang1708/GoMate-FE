@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { ComponentProps, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +21,7 @@ const titles: Record<SettingsPage, string> = { root: 'Cài đặt', account: 'T�
 
 export function SettingsScreen({ onBack, onLogout, page = 'root', onNavigate }: { onBack: () => void; onLogout: () => void; page?: SettingsPage; onNavigate: (page: SettingsPage) => void }) {
   const setPage = onNavigate;
-  const [error, setError] = useState(''), [saving, setSaving] = useState(false);
+  const [error, setError] = useFeedbackState(''), [saving, setSaving] = useState(false);
   const remote = useRemote(getAccountSettings, null);
   const locked = useRef(false), { profile } = useProfile();
   const save = async (patch: Partial<AccountSettings>) => {
@@ -54,13 +55,13 @@ export function SettingsScreen({ onBack, onLogout, page = 'root', onNavigate }: 
 }
 
 function PasswordForm({ onDone }: { onDone: () => void }) {
-  const [current, setCurrent] = useState(''), [password, setPassword] = useState(''), [confirm, setConfirm] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [current, setCurrent] = useState(''), [password, setPassword] = useState(''), [confirm, setConfirm] = useState(''), [error, setError] = useFeedbackState(''), [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const save = async () => { if (lock.current) return; setError(''); if (password.length < 6 || password.length > 128 || password !== confirm || !current || current === password) { setError('Nhập mật khẩu hiện tại và mật khẩu mới khác mật khẩu cũ, từ 6 đến 128 ký tự; xác nhận phải khớp.'); return; } lock.current = true; setBusy(true); try { await post('/auth/change-password', { currentPassword: current, newPassword: password }); await persistSession(null); onDone(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Chưa đổi được mật khẩu'); } finally { lock.current = false; setBusy(false); } };
   return <View style={styles.card}><Text style={styles.note}>Sau khi đổi, hãy đăng nhập lại bằng mật khẩu mới trên các thiết bị.</Text><FormField label="Mật khẩu hiện tại" value={current} onChangeText={setCurrent} secureTextEntry /><FormField label="Mật khẩu mới" value={password} onChangeText={setPassword} secureTextEntry /><FormField label="Xác nhận mật khẩu mới" value={confirm} onChangeText={setConfirm} secureTextEntry />{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}<GradientButton label={busy ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'} disabled={busy} onPress={() => void save()} /></View>;
 }
 function BlockedAccounts() {
-  const remote = useRemote(listBlockedUsers, []); const [error, setError] = useState(''), [busy, setBusy] = useState('');
+  const remote = useRemote(listBlockedUsers, []); const [error, setError] = useFeedbackState(''), [busy, setBusy] = useState('');
   const unblock = async (id: string) => { if (busy) return; setBusy(id); setError(''); try { await unblockUser(id); await remote.reload(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không bỏ chặn được'); } finally { setBusy(''); } };
   return <><RemoteState {...remote} onRetry={remote.reload} />{!remote.loading && !remote.error && !remote.data.length && <Text style={styles.note}>Bạn chưa chặn tài khoản nào.</Text>}{remote.data.map(user => <View key={user.userId} style={styles.card}><Text style={styles.heading}>{user.name}</Text><Pressable accessibilityRole="button" accessibilityLabel={'Bỏ chặn ' + user.name} disabled={Boolean(busy)} onPress={() => void unblock(user.userId)}><Text style={{ color: colors.primary }}>{busy === user.userId ? 'Đang bỏ chặn...' : 'Bỏ chặn'}</Text></Pressable></View>)}{error ? <Text style={styles.error}>{error}</Text> : null}</>;
 }

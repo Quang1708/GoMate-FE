@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { portalTranslations } from './portalTranslations';
 import * as SecureStore from 'expo-secure-store';
 import { createContext, PropsWithChildren, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -353,7 +354,17 @@ const entries: Translation[] = [
   { vi: 'Tham gia\nhoạt động thú vị', en: 'Join fun\nactivities' }, { vi: 'Mở rộng\ntrải nghiệm', en: 'Expand your\nexperiences' },
 ];
 
-const viLookup = new Map(entries.flatMap((entry) => [[entry.vi, entry], [entry.en, entry]]));
+const viLookup = new Map([...entries, ...Object.entries(portalTranslations).map(([en, vi]) => ({ en, vi })),
+  { vi: 'Thông báo', en: 'Notice' }, { vi: 'Đã hiểu', en: 'Got it' },
+  { vi: 'Vui lòng nhập giới thiệu.', en: 'Please add an introduction.' },
+  { vi: 'Vui lòng nhập giới thiệu hoạt động.', en: 'Please introduce the activity.' },
+  { vi: 'Giới thiệu quá dài. Vui lòng viết ngắn gọn hơn.', en: 'The introduction is too long. Please shorten it.' },
+  { vi: 'Vui lòng nhập họ tên.', en: 'Please enter your name.' },
+  { vi: 'Vui lòng chọn giới tính.', en: 'Please select a gender.' },
+  { vi: 'Vui lòng chọn tỉnh / thành phố.', en: 'Please select a province or city.' },
+  { vi: 'Vui lòng chọn ngôn ngữ.', en: 'Please select a language.' },
+  { vi: 'Vui lòng chọn sở thích.', en: 'Please select an interest.' },
+].flatMap((entry) => [[entry.vi, entry], [entry.en, entry]]));
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: PropsWithChildren) {

@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { GroupCompanions } from '../components/CompanionCards';
 import { AddActivityFriends } from '../components/AddActivityFriends';
 import { useCallback, useRef, useState } from 'react';
@@ -17,7 +18,7 @@ import { MemberProfileModal } from '../components/MemberProfileModal';
 function useAction() {
   const lock = useRef(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useFeedbackState('');
   const run = async (action: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');

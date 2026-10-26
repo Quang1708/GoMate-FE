@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useRef, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,7 +11,7 @@ import { colors } from '../theme';
 export function ProfilePhotoEditor({ onBusyChange }: { onBusyChange: (busy: boolean) => void }) {
   const { profile, update } = useProfile();
   const photos = profile?.photos ?? [];
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('');
   const lock = useRef(false);
   const run = async (action: () => Promise<void>) => {
     if (lock.current) return;

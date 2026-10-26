@@ -72,8 +72,9 @@ export function draftDeadline(draft: ActivityDraft) {
 
 export function validateActivityDraft(draft: ActivityDraft, step: number) {
   if (step === 1) {
-    if (draft.name.trim().length < 3 || draft.name.trim().length > 120) throw new Error('Tên hoạt động cần từ 3 đến 120 ký tự.');
-    if (!draft.description.trim() || draft.description.trim().length > 3000) throw new Error('Thêm mô tả hoạt động (tối đa 3000 ký tự).');
+    if (draft.name.trim().length < 3 || draft.name.trim().length > 120) throw new Error('Vui lòng nhập tên hoạt động hợp lệ.');
+    if (!draft.description.trim()) throw new Error('Vui lòng nhập giới thiệu hoạt động.');
+    if (draft.description.trim().length > 3000) throw new Error('Giới thiệu quá dài. Vui lòng viết ngắn gọn hơn.');
     if (!draft.category.trim()) throw new Error('Chọn danh mục cho hoạt động.');
   }
   if (step === 2 || step === 4) {

@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../../services/feedback';
 import { ComponentProps, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ export function MatchMoreMenu({ category, onClose, onHide, onNotInterested, onRe
 }
 
 export function ReportActivitySheet({ activityId, onClose, visible }: { activityId: string; onClose: () => void; visible: boolean }) {
-  const [reason, setReason] = useState(''), [detail, setDetail] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [sent, setSent] = useState(false);
+  const [reason, setReason] = useState(''), [detail, setDetail] = useState(''), [error, setError] = useFeedbackState(''), [busy, setBusy] = useState(false), [sent, setSent] = useState(false);
   const submit = async () => { if (busy) return; setBusy(true); setError(''); try { await reportActivity(activityId, reason, detail); setSent(true); } catch (why) { setError(why instanceof Error ? why.message : 'Chưa gửi được báo cáo'); } finally { setBusy(false); } };
   const reasons = ['Nội dung không phù hợp', 'Thông tin sai sự thật', 'Quấy rối / thiếu an toàn', 'Hoạt động thương mại / quảng cáo', 'Trùng lặp nội dung', 'Lý do khác'];
   return (

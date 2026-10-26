@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { RouteMap } from './RouteMap';
 import { PlacePicker } from './PlacePicker';
 import { getMapsConfig, MapsConfig } from '../services/mapsService';
@@ -17,7 +18,7 @@ import { colors, layout } from '../theme';
 export function ChatAttachmentPanel({ conversationId, disabled, remaining, onFile, onLocation, onBusyChange, open, onClose, height }: { open: boolean; onClose: () => void; height: number; conversationId: string; disabled: boolean; remaining: number; onFile: (file: ChatAttachment) => void; onLocation: (location: ChatLocation) => void; onBusyChange: (busy: boolean) => void }) {
   const config = useRemote<MapsConfig | null>(getMapsConfig, null);
   const [placePicker, setPlacePicker] = useState(false);
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('');
   const lock = useRef(false);
   useEffect(() => { onBusyChange(busy); }, [busy, onBusyChange]);
   const choose = async (kind: 'media' | 'camera' | 'file' | 'location' | 'place') => {
@@ -60,7 +61,7 @@ export function ChatAttachmentPanel({ conversationId, disabled, remaining, onFil
 }
 
 function useProtectedSource(conversationId: string, file: ChatAttachment) {
-  const [uri, setUri] = useState(''), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  const [uri, setUri] = useState(''), [error, setError] = useFeedbackState(''), [retry, setRetry] = useState(0);
   const url = attachmentUrl(conversationId, file.id);
   useEffect(() => {
     let alive = true, local = ''; const controller = new AbortController();
@@ -71,7 +72,7 @@ function useProtectedSource(conversationId: string, file: ChatAttachment) {
       local = URL.createObjectURL(blob); setUri(local);
     }).catch(reason => { if (alive) setError(reason.message); });
     return () => { alive = false; controller.abort(); if (local) URL.revokeObjectURL(local); };
-  }, [url, retry]);
+  }, [url, retry, setError]);
   return { uri: Platform.OS === 'web' ? uri : url, error, retry: () => { setUri(''); setError(''); setRetry(value => value + 1); } };
 }
 
@@ -86,7 +87,7 @@ function SharedFile({ conversationId, file }: { conversationId: string; file: Ch
   return previewable ? <MediaFile conversationId={conversationId} file={file} /> : <DownloadFile conversationId={conversationId} file={file} />;
 }
 function DownloadFile({ conversationId, file }: { conversationId: string; file: ChatAttachment }) {
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('');
   const download = async () => { if (busy) return; setBusy(true); setError(''); try { await downloadChatFile(conversationId, file); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không tải được tệp.'); } finally { setBusy(false); } };
   return <View><Pressable accessibilityRole="button" accessibilityLabel={`Tải ${file.name}`} disabled={busy} onPress={() => void download()} style={styles.file}><Ionicons name={file.kind === 'audio' ? 'musical-notes-outline' : 'document-text-outline'} color={colors.primary} size={24} /><View style={{ flex: 1, gap: 5 }}><Text numberOfLines={2} style={{ color: colors.text, fontWeight: '600' }}>{file.name}</Text><Text style={styles.caption}>{fileSize(file.size)}</Text></View>{busy ? <ActivityIndicator color={colors.primary} /> : <Ionicons name="download-outline" size={20} color={colors.primary} />}</Pressable>{error ? <Text style={styles.error}>{error}</Text> : null}</View>;
 }
@@ -96,16 +97,16 @@ function MediaFile({ conversationId, file }: { conversationId: string; file: Cha
 }
 
 export function ChatMessageContent({ item, kind, mine = false }: { item: ChatMessage; kind?: SharedKind; mine?: boolean }) {
-  const [error, setError] = useState(''), [locationOpen, setLocationOpen] = useState(false);
+  const [error, setError] = useFeedbackState(''), [locationOpen, setLocationOpen] = useState(false);
   const open = (url: string) => { setError(''); void Linking.openURL(url).catch(() => setError('Không mở được liên kết.')); };
   const files = (item.attachments ?? []).filter(file => !kind || (kind === 'media' ? file.kind !== 'file' : kind === 'files' ? file.kind === 'file' : false));
   return <View style={{ gap: 8 }}>{files.map(file => <SharedFile key={file.id} conversationId={item.conversationId} file={file} />)}{item.location && (!kind || kind === 'locations') && <Pressable accessibilityRole="button" accessibilityLabel="Mở vị trí trên bản đồ" onPress={() => setLocationOpen(true)} style={styles.file}><View style={styles.choiceIcon}><Ionicons name="location" size={27} color={colors.primary} /></View><View style={{ flex: 1, gap: 5 }}><Text style={{ fontWeight: '700', color: colors.text }}>{item.location.label || 'Vị trí đã chia sẻ'}</Text><Text style={styles.caption}>{item.location.latitude.toFixed(5)}, {item.location.longitude.toFixed(5)}</Text><Text style={{ color: colors.primary, fontSize: 12 }}>Mở bản đồ ↗</Text></View></Pressable>}{(!kind || kind === 'links') && (item.links ?? []).map(url => <Pressable key={url} accessibilityRole="link" onPress={() => open(url)}><Text numberOfLines={3} style={{ color: mine ? '#FFFFFF' : colors.primary, textDecorationLine: 'underline', fontSize: 13 }}>{url}</Text></Pressable>)}{error ? <Text style={styles.error}>{error}</Text> : null}{locationOpen && item.location && <Modal visible animationType="slide" onRequestClose={() => setLocationOpen(false)}><SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}><ScreenHeader title={item.location.label || 'Vị trí đã chia sẻ'} onBack={() => setLocationOpen(false)} /><ScrollView contentContainerStyle={styles.library}><RouteMap point={item.location} /><Text style={styles.caption}>{item.location.latitude.toFixed(5)}, {item.location.longitude.toFixed(5)}</Text></ScrollView></SafeAreaView></Modal>}</View>;
 }
 
 export function SharedChatLibrary({ conversationId, onClose }: { conversationId: string; onClose: () => void }) {
-  const [kind, setKind] = useState<SharedKind>('media'), [items, setItems] = useState<ChatMessage[]>([]), [cursor, setCursor] = useState<string | null>(null), [busy, setBusy] = useState(true), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  const [kind, setKind] = useState<SharedKind>('media'), [items, setItems] = useState<ChatMessage[]>([]), [cursor, setCursor] = useState<string | null>(null), [busy, setBusy] = useState(true), [error, setError] = useFeedbackState(''), [retry, setRetry] = useState(0);
   const pageLock = useRef(false), generation = useRef(0);
-  useEffect(() => { let alive = true; generation.current++; void sharedContent(conversationId, kind).then(page => { if (alive) { setItems(page.items); setCursor(page.nextCursor); } }).catch(reason => { if (alive) setError(reason.message); }).finally(() => { if (alive) setBusy(false); }); return () => { alive = false; }; }, [conversationId, kind, retry]);
+  useEffect(() => { let alive = true; generation.current++; void sharedContent(conversationId, kind).then(page => { if (alive) { setItems(page.items); setCursor(page.nextCursor); } }).catch(reason => { if (alive) setError(reason.message); }).finally(() => { if (alive) setBusy(false); }); return () => { alive = false; }; }, [conversationId, kind, retry, setError]);
   const more = async () => { if (pageLock.current || busy || !cursor) return; pageLock.current = true; const current = generation.current; setBusy(true); setError(''); try { const page = await sharedContent(conversationId, kind, cursor); if (current === generation.current) { setItems(rows => [...new Map([...rows, ...page.items].map(item => [item.id, item])).values()]); setCursor(page.nextCursor); } } catch (reason) { if (current === generation.current) setError(reason instanceof Error ? reason.message : 'Không tải được nội dung.'); } finally { pageLock.current = false; if (current === generation.current) setBusy(false); } };
   return <Modal visible animationType="slide" onRequestClose={onClose}><SafeAreaView testID="shared-chat-library" style={{ flex: 1, backgroundColor: colors.background }}><ScreenHeader title="Nội dung đã chia sẻ" onBack={onClose} /><View style={styles.libraryTabs}>{([['media', 'Ảnh / video'], ['files', 'Tệp'], ['links', 'Liên kết'], ['locations', 'Vị trí']] as const).map(([key, label]) => <Pressable accessibilityRole="tab" accessibilityState={{ selected: key === kind }} key={key} onPress={() => { if (key !== kind) { generation.current++; setBusy(true); setItems([]); setCursor(null); setError(''); setKind(key); } }} style={[styles.libraryTab, key === kind && { backgroundColor: colors.primarySoft }]}><Text style={{ color: key === kind ? colors.primary : colors.textMuted, fontSize: 12 }}>{label}</Text></Pressable>)}</View><ScrollView contentContainerStyle={styles.library}>{!busy && !error && !items.length && <View style={styles.empty}><Ionicons name="albums-outline" size={36} color={colors.primary} /><Text>Chưa có nội dung trong mục này.</Text></View>}{items.map(item => <View key={item.id} style={styles.libraryItem}><Text style={styles.caption}>{item.senderName} · {new Date(item.createdAt).toLocaleDateString('vi-VN')}</Text><ChatMessageContent item={item} kind={kind} /></View>)}{busy && <ActivityIndicator color={colors.primary} />}{error ? <><Text style={styles.error}>{error}</Text><Pressable onPress={() => { if (cursor) void more(); else { setBusy(true); setError(''); setRetry(value => value + 1); } }}><Text style={{ color: colors.primary }}>Thử lại</Text></Pressable></> : null}{cursor && !busy && !error && <Pressable onPress={() => void more()} style={styles.libraryTab}><Text style={{ color: colors.primary }}>Xem thêm</Text></Pressable>}</ScrollView></SafeAreaView></Modal>;
 }

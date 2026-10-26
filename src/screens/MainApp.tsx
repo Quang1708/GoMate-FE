@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { createConversation, getConversation } from '../services/chatService';
 import { FriendsScreen } from './FriendsScreen';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -120,7 +121,7 @@ export function MainApp({ onLogout }: { onLogout: () => void }) {
 
 function MainAppContent({ onLogout }: { onLogout: () => void }) {
   const userProfile = useProfile();
-  const [actionError, setActionError] = useState('');
+  const [actionError, setActionError] = useFeedbackState('');
 
   const [navigation, navigate] = useWebNavigation(initialNavigation, encodeNavigation, decodeNavigation, getSession()?.user.id || 'guest', restoreNavigation);
   const { activeTab, route } = navigation;
@@ -133,7 +134,7 @@ function MainAppContent({ onLogout }: { onLogout: () => void }) {
     let alive = true;
     void getConversation(route.id).then(conversation => { if (alive) setRoute({ name: 'chat', conversation }, true); }).catch(reason => { if (alive) { setActionError(reason instanceof Error ? reason.message : 'Không mở được chat'); setRoute(null, true); } });
     return () => { alive = false; };
-  }, [route, setRoute]);
+  }, [route, setRoute, setActionError]);
   useEffect(() => {
     if (route?.name !== 'activityLink') return;
     let alive = true;
@@ -144,7 +145,7 @@ function MainAppContent({ onLogout }: { onLogout: () => void }) {
       setRoute(target === 'activityDetail' ? { name: 'activityDetail', activity, source: 'home' } : target === 'group' ? { name: 'group', activity, source: 'myActivities' } : { name: target, activity }, true);
     }).catch(reason => { if (alive) { setActionError(reason instanceof Error ? reason.message : 'Không tải được hoạt động'); setRoute(null, true); } });
     return () => { alive = false; };
-  }, [route, setRoute]);
+  }, [route, setRoute, setActionError]);
   const preferences = useRemote(getMatchPreferences, { filters: null, favoriteIds: [] });
   const [sessionFilters, setFilters] = useState<ActivityFilters | null>(null);
   const filters = useMemo(() => sessionFilters ?? { ...defaultActivityFilters, province: normalizeRegion(userProfile.profile?.location || '') || 'Tất cả', ...preferences.data.filters, coordinates: null }, [sessionFilters, preferences.data.filters, userProfile.profile?.location]);

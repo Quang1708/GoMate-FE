@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,7 +7,7 @@ import { downloadPlanFile, ItineraryStep, PlanFile, safePlanLink } from '../serv
 import { isoToDate } from './DateTimeField';
 import { colors } from '../theme';
 export function TripPlanView({ activityId, itinerary = [], plan = [], planLink, planFile, preview = false }: { activityId: string; itinerary?: ItineraryStep[]; plan?: string[]; planLink?: string; planFile?: PlanFile | null; preview?: boolean }) {
-  const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [error, setError] = useFeedbackState(''), [busy, setBusy] = useState(false);
   return <View style={{ gap: 16 }}>
     <View style={styles.sectionHead}><View style={styles.icon}><Ionicons name="map-outline" size={21} color={colors.primary} /></View><View style={{ flex: 1 }}><Text style={styles.heading}>Lịch trình</Text><Text style={styles.caption}>{itinerary.length || plan.length} mốc hoạt động</Text></View></View>
     {itinerary.length ? itinerary.map((step, index) => <View key={step.id} style={styles.step}><View style={styles.rail}><View style={styles.stepDot}><Text style={styles.stepNumber}>{index + 1}</Text></View>{index < itinerary.length - 1 && <View style={styles.line} />}</View><View style={styles.stepCard}><View style={styles.stepHead}><Text style={styles.time}>{step.time}</Text><Text style={styles.caption}>{isoToDate(step.date)}</Text></View><Text style={styles.title}>{step.title}</Text>{step.place ? <View style={styles.place}><Ionicons name="location-outline" size={14} color={colors.textSecondary} /><Text style={styles.caption}>{step.place}</Text></View> : null}{step.note ? <Text style={styles.note}>{step.note}</Text> : null}</View></View>) : plan.map((line, index) => <View key={index} style={styles.step}><View style={styles.stepDot}><Text style={styles.stepNumber}>{index + 1}</Text></View><View style={[styles.stepCard, { paddingVertical: 16 }]}><Text style={styles.title}>{line}</Text></View></View>)}

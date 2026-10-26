@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { deleteActivityDraft, loadActivityDraft, restoreDraftPhotos, saveActivityDraft } from '../services/activityDraftService';
 import { placeRegionFields } from '../services/mapsService';
 import { AddressAutocomplete } from '../components/AddressAutocomplete';
@@ -70,7 +71,7 @@ export function CreateActivityScreen({ onCreated, initialActivity, onCancel }: {
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState(() => draftFromActivity(initialActivity, defaultRegion));
   const [customCategory, setCustomCategory] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useFeedbackState<string | undefined>(undefined);
   const [draftLoading, setDraftLoading] = useState(!initialActivity), [draftLoadError, setDraftLoadError] = useState(''), [draftRetry, setDraftRetry] = useState(0);
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
   const [draftSaving, setDraftSaving] = useState(false), [draftNotice, setDraftNotice] = useState(''), [discarding, setDiscarding] = useState(false);

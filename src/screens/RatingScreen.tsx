@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useCallback, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +15,7 @@ import { useRemote } from '../services/useRemote';
 import { colors, layout } from '../theme';
 export function RatingScreen({ activity, onBack, onComplete }: { activity: Activity; onBack: () => void; onComplete: () => void }) {
   const load = useCallback(() => getRatingForm(activity.id), [activity.id]), remote = useRemote(load, null);
-  const [score, setScore] = useState(0), [comment, setComment] = useState(''), [members, setMembers] = useState<Record<string, number>>({}), [busy, setBusy] = useState(false), [error, setError] = useState(''), [sent, setSent] = useState(false);
+  const [score, setScore] = useState(0), [comment, setComment] = useState(''), [members, setMembers] = useState<Record<string, number>>({}), [busy, setBusy] = useState(false), [error, setError] = useFeedbackState(''), [sent, setSent] = useState(false);
   const locked = useRef(false), submitted = remote.data?.submitted;
   const send = async () => { if (locked.current) return; if (!score) { setError('Chọn điểm cho trải nghiệm của bạn.'); return; } locked.current = true; setBusy(true); setError(''); try { await submitRating(activity.id, { score, comment, members: Object.entries(members).filter(([, value]) => value > 0).map(([userId, value]) => ({ userId, score: value })) }); setSent(true); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Chưa gửi được đánh giá'); } finally { locked.current = false; setBusy(false); } };
   return <SafeAreaView style={styles.safe}><ScreenHeader title="Đánh giá" onBack={onBack} /><ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled"><RemoteState {...remote} onRetry={remote.reload} />{remote.data && !remote.error && (submitted || sent ? <View style={styles.card}><Ionicons name="checkmark-circle" size={45} color={colors.success} /><Text style={styles.heading}>Cảm ơn bạn đã chia sẻ!</Text><Text style={styles.note}>Đánh giá đã được lưu. Mỗi tài khoản gửi một lần cho mỗi hoạt động.</Text>{submitted && <><Text>Trải nghiệm: {submitted.value.score}/5</Text><Text>{submitted.value.comment}</Text></>}<GradientButton label="Hoàn tất" onPress={onComplete} /></View> : <>

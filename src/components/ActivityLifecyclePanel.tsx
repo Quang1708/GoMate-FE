@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +24,7 @@ export function ActivityLifecyclePanel({ activity, compact = false, showTimeline
   const [confirmation, setConfirmation] = useState<{ action: 'schedule' | 'start'; version: number } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { translate } = useLanguage();
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('');
   const [now, setNow] = useState(Date.now);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 10000); return () => clearInterval(timer); }, []);
   const locked = useRef(false);

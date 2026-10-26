@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,7 +25,7 @@ export function ActivityManagementPanel({ activityId, onPlan, onOpenGroup, onMem
     return { activity, requests: await listRequests(activityId) };
   }, [activityId]);
   const remote = useRemote(load, null);
-  const [editing, setEditing] = useState(false), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false), [error, setError] = useFeedbackState(''), [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 10000); return () => clearInterval(timer); }, []);
   const [confirmation, setConfirmation] = useState<'delete' | null>(null);

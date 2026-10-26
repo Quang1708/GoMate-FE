@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ import { useRemote } from '../services/useRemote';
 
 export function PlacePicker({ bias, onSelect, onClose }: { bias?: Coordinates | null; onSelect: (place: MapPlace) => void; onClose: () => void }) {
   const config = useRemote<MapsConfig | null>(getMapsConfig, null);
-  const [query, setQuery] = useState(''), [items, setItems] = useState<PlacePrediction[]>([]), [busy, setBusy] = useState(false), [selecting, setSelecting] = useState(false), [error, setError] = useState(''), [detail, setDetail] = useState<MapPlace | null>(null), [retry, setRetry] = useState(0);
+  const [query, setQuery] = useState(''), [items, setItems] = useState<PlacePrediction[]>([]), [busy, setBusy] = useState(false), [selecting, setSelecting] = useState(false), [error, setError] = useFeedbackState(''), [detail, setDetail] = useState<MapPlace | null>(null), [retry, setRetry] = useState(0);
   const session = useRef(''), expires = useRef(0), lock = useRef(false);
   useEffect(() => {
     if (query.trim().length < 2 || detail) return;
@@ -24,7 +25,7 @@ export function PlacePicker({ bias, onSelect, onClose }: { bias?: Coordinates | 
       void placePredictions(query.trim(), session.current, bias).then(rows => { if (alive) { setItems(rows); setError(''); } }).catch(reason => { if (alive) setError(reason.message); }).finally(() => { if (alive) setBusy(false); });
     }, 450);
     return () => { alive = false; clearTimeout(timer); };
-  }, [query, bias, detail, retry]);
+  }, [query, bias, detail, retry, setError]);
   const choose = async (item: PlacePrediction) => {
     if (lock.current) return; lock.current = true; setSelecting(true); setError('');
     try { setDetail(await placeDetails(item, session.current)); session.current = ''; expires.current = 0; }

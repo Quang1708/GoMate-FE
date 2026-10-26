@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
 import { Text } from './LocalizedText';
@@ -8,7 +9,7 @@ import { ActivityDto, addActivityFriends, getActivity, listMembers } from '../se
 import { useRemote } from '../services/useRemote';
 import { colors } from '../theme';
 export function AddActivityFriends({ activityId, onAdded }: { activityId: string; onAdded: () => void }) {
-  const [open, setOpen] = useState(false), [ids, setIds] = useState<string[]>([]), [useReserved, setUseReserved] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [open, setOpen] = useState(false), [ids, setIds] = useState<string[]>([]), [useReserved, setUseReserved] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('');
   const lock = useRef(false);
   const loader = useCallback(async () => { const [friends, members, activity] = await Promise.all([listFriends(), listMembers(activityId), getActivity(activityId)]); return { friends: friends.filter(friend => !members.some(member => member.userId === friend.id)), activity }; }, [activityId]);
   const remote = useRemote<{ friends: Friend[]; activity: ActivityDto | null }>(loader, { friends: [], activity: null });

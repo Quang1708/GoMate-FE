@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useFeedbackState } from '../services/feedback';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Text } from './LocalizedText';
@@ -20,7 +22,7 @@ function loadGoogle() {
 export function GoogleLoginButton({ onLogin }: { onLogin: () => void }) {
   const node = useRef<HTMLDivElement>(null), callback = useRef(onLogin), lock = useRef(false);
   useEffect(() => { callback.current = onLogin; }, [onLogin]);
-  const [error, setError] = useState(''), [configured, setConfigured] = useState(false), [retry, setRetry] = useState(0);
+  const [error, setError] = useFeedbackState(''), [configured, setConfigured] = useState(false), [retry, setRetry] = useState(0);
   useEffect(() => {
     let alive = true;
     void api<{ clientId: string | null }>('/auth/google/config').then(async ({ clientId }) => {
@@ -36,9 +38,9 @@ export function GoogleLoginButton({ onLogin }: { onLogin: () => void }) {
       identity.renderButton(node.current, { theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 300 });
     }).catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Không tải được Google'); });
     return () => { alive = false; };
-  }, [retry]);
+  }, [retry, setError]);
   return <View style={{ gap: 8, alignItems: 'center' }}><div ref={node} />
-    {!configured && <Pressable accessibilityRole="button" onPress={() => setError('Đăng nhập Google chưa được bật. Vui lòng dùng email.')} style={{ padding: 14, borderRadius: 24, borderWidth: 1, borderColor: colors.border, alignItems: 'center', width: '100%' }}><Text>Continue with Google</Text></Pressable>}
+    {!configured && <Pressable accessibilityRole="button" onPress={() => setError('Đăng nhập Google chưa được bật. Vui lòng dùng email.')} style={{ padding: 14, borderRadius: 24, borderWidth: 1, borderColor: colors.border, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10, width: '100%' }}><Ionicons name="logo-google" size={22} color="#4285F4" /><Text>Continue with Google</Text></Pressable>}
     {error ? <><Text style={{ color: colors.danger }}>{error}</Text>{configured && <Pressable accessibilityRole="button" onPress={() => { setError(''); setRetry(value => value + 1); }}><Text style={{ color: colors.primary }}>Thử lại Google</Text></Pressable>}</> : null}
   </View>;
 }

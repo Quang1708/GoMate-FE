@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +10,7 @@ import { listNotifications, Notification, readNotification } from '../services/c
 import { useRemote } from '../services/useRemote';
 import { colors, layout } from '../theme';
 export function NotificationsScreen({ onBack, onOpen }: { onBack: () => void; onOpen: (notice: Notification) => Promise<void> }) {
-  const remote = useRemote(listNotifications, []), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const remote = useRemote(listNotifications, []), [error, setError] = useFeedbackState(''), [busy, setBusy] = useState(false);
   const reload = remote.reload;
   useEffect(() => { const timer = setInterval(() => void reload(), 10000); return () => clearInterval(timer); }, [reload]);
   const open = async (notice?: Notification) => { if (busy) return; setBusy(true); setError(''); try { await readNotification(notice?.id); await remote.reload(); if (notice) await onOpen(notice); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không mở được thông báo'); } finally { setBusy(false); } };

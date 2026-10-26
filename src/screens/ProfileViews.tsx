@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { ComponentProps, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +38,7 @@ function ProfileForm({ profile, required, onSaved }: { profile: UserProfile; req
   const [photo, setPhoto] = useState<{ uri: string; base64: string } | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false);
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('');
   const lock = useRef(false);
   const patch = (value: Partial<ProfileDraft>) => setDraft(current => ({ ...current, ...value }));
   const choosePhoto = async () => {
@@ -45,7 +46,7 @@ function ProfileForm({ profile, required, onSaved }: { profile: UserProfile; req
       const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], mediaTypes: ['images'], quality: 0.7, base64: true });
       if (!result.canceled) {
         const asset = result.assets[0];
-        if (!asset.base64 || asset.base64.length > 2796204) throw new Error('Chọn ảnh JPEG/PNG/WebP tối đa 2 MB.');
+        if (!asset.base64 || (asset.fileSize ?? 0) > 10 * 1024 * 1024 || asset.base64.length * 3 / 4 - (asset.base64.endsWith('==') ? 2 : asset.base64.endsWith('=') ? 1 : 0) > 10 * 1024 * 1024) throw new Error('Mỗi ảnh tối đa 10 MB.');
         setPhoto({ uri: asset.uri, base64: asset.base64 }); setError('');
       }
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không chọn được ảnh'); }
@@ -56,8 +57,12 @@ function ProfileForm({ profile, required, onSaved }: { profile: UserProfile; req
     lock.current = true; setBusy(true); setError('');
     try {
       const birthDate = birthDateIso(draft.birthDate);
-      if (!draft.gender || draft.name.trim().length < 2 || !profileRegions.includes(draft.location) || !draft.languages.length) throw new Error('Bổ sung họ tên, ngày sinh, giới tính, tỉnh / thành phố và ít nhất một ngôn ngữ.');
-      if (step !== 'basic' && (!draft.bio.trim() || !draft.interests.length)) throw new Error('Thêm giới thiệu và ít nhất một sở thích để người đồng hành hiểu bạn hơn.');
+      if (draft.name.trim().length < 2) throw new Error('Vui lòng nhập họ tên.');
+      if (!draft.gender) throw new Error('Vui lòng chọn giới tính.');
+      if (!profileRegions.includes(draft.location)) throw new Error('Vui lòng chọn tỉnh / thành phố.');
+      if (!draft.languages.length) throw new Error('Vui lòng chọn ngôn ngữ.');
+      if (step !== 'basic' && !draft.bio.trim()) throw new Error('Vui lòng nhập giới thiệu.');
+      if (step !== 'basic' && !draft.interests.length) throw new Error('Vui lòng chọn sở thích.');
       let updated = await saveProfile({ ...draft, birthDate });
       if (photo) { updated = await uploadAvatar(photo.base64); setPhoto(null); }
       remote.update(updated);
@@ -77,7 +82,7 @@ function ProfileForm({ profile, required, onSaved }: { profile: UserProfile; req
       <View style={styles.avatarArea}>{avatar ? <Image source={{ uri: avatar }} style={styles.avatar} /> : <View style={styles.avatar}><Text style={styles.initial}>{draft.name.charAt(0)}</Text></View>}<Pressable disabled={busy} accessibilityRole="button" onPress={() => void choosePhoto()}><Text style={styles.link}>Chọn ảnh đại diện</Text></Pressable></View>
       {step !== 'companion' && <View style={styles.card}><Text style={styles.title}>Thông tin cơ bản</Text>
         <FormField label="Họ và tên" value={draft.name} onChangeText={name => patch({ name })} />
-        <FormField label="Nickname (không bắt buộc)" value={draft.username} onChangeText={username => patch({ username })} placeholder="gomate_user" />
+        <FormField label="Nickname (không bắt buộc)" value={draft.username} onChangeText={username => patch({ username })} placeholder="" />
         <BirthDateField value={draft.birthDate} onChange={birthDate => patch({ birthDate })} />
         <OptionChips label="Giới tính" options={genderOptions} selected={[draft.gender]} single onChange={values => patch({ gender: values[0] || 'undisclosed' })} />
         <RegionField value={draft.location} onChange={location => patch({ location })} />

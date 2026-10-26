@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +20,7 @@ export function AddressAutocomplete({ value, bias, onChangeText, onSelect, onSug
   const config = useRemote<MapsConfig | null>(getMapsConfig, null);
   const [query, setQuery] = useState(''), [retry, setRetry] = useState(0);
   const [results, setResults] = useState<{ items: PlacePrediction[]; session: string } | null>(null);
-  const [busy, setBusy] = useState(false), [selecting, setSelecting] = useState(false), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [selecting, setSelecting] = useState(false), [error, setError] = useFeedbackState('');
   const session = useRef(''), locked = useRef(false), alive = useRef(true);
   const latitude = bias?.latitude, longitude = bias?.longitude;
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -36,7 +37,7 @@ export function AddressAutocomplete({ value, bias, onChangeText, onSelect, onSug
         .finally(() => { if (current) setBusy(false); });
     }, 450);
     return () => { current = false; clearTimeout(timer); };
-  }, [query, value, retry, latitude, longitude, config.data?.placesEnabled]);
+  }, [query, value, retry, latitude, longitude, config.data?.placesEnabled, setError]);
 
   const edit = (text: string) => {
     onChangeText(text); setQuery(text); setResults(null); setError(''); setBusy(text.trim().length >= 2);

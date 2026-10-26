@@ -4,6 +4,14 @@ Record decisions here when they materially affect architecture, dependencies,
 security, the data model, or product behavior. Keep the newest decision at the
 top. Small implementation details belong only in `DEVELOPMENT_LOG.md`.
 
+### 2026-10-26 - Isolate account state and reconcile activity schedules
+
+- **Status:** Accepted for the requested account isolation and overdue activity behavior.
+- **Decision:** Key the app workspace by account identity and discard API responses from superseded sessions, including successful empty responses. Browser storage events update identity across tabs. Profile-name updates within one account do not reset the workspace.
+- **Decision:** The backend checks schedules at startup and every 30 seconds. Published/in-progress activities become completed after `endsAt`; host and approved members receive in-app reminders within 30 minutes of the start and automatic-completion notices. Stable schedule keys prevent duplicate notices and delivery failures are retried.
+- **Decision:** Automatic completion preserves attendance. It does not imply attendance or change existing rating eligibility. Keep validation limits while simplifying user-facing messages and using the shared app dialog for action feedback.
+- **Decision:** Reuse the existing language preference for portal English/Vietnamese; translate UI labels without resetting form state or rewriting submitted content. Keep the 10 MiB image limit on both client and API.
+
 ### 2026-10-19 - Connect the merged partner portal and business events to the app
 
 - **Status:** Accepted at the user's request. `origin/htan-ui-web` was merged into `fe-ui2` without conflicts; existing activity/chat work was committed before merging.

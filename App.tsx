@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { AppFeedback } from './src/components/AppFeedback';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { getSession, initializeSession } from './src/services/api';
+import { getSession, initializeSession, subscribeSession } from './src/services/api';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -19,6 +20,16 @@ function pendingEmail() { try { return sessionStorage.getItem('gomate.verificati
 type Screen = 'onboarding' | 'auth' | 'verify' | 'profile' | 'permissions' | 'main';
 
 export default function App() {
+  const owner = useSyncExternalStore(subscribeSession, () => getSession()?.user.id ?? 'guest');
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const asset = require('./src/assets/logo-app.png') as string | { uri: string };
+    const href = typeof asset === 'string' ? asset : asset.uri;
+    if (!href) return;
+    const link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]') ?? document.createElement('link');
+    link.rel = 'icon'; link.type = 'image/png'; link.href = href;
+    document.head.appendChild(link);
+  }, []);
   const [booting, setBooting] = useState(Platform.OS !== 'web');
   const [bootError, setBootError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -39,11 +50,12 @@ export default function App() {
   }, []);
   useEffect(() => { setUnauthorizedHandler(() => setScreen('auth')); return () => setUnauthorizedHandler(); }, []);
 
-  if (Platform.OS === 'web' && ['/portal', '/demo'].includes(window.location.pathname.replace(/\/$/, ''))) return <WebWorkspace mode={window.location.pathname.startsWith('/portal') ? 'portal' : 'demo'} />;
+  if (Platform.OS === 'web' && ['/portal', '/demo'].includes(window.location.pathname.replace(/\/$/, ''))) return <WebWorkspace key={owner} mode={window.location.pathname.startsWith('/portal') ? 'portal' : 'demo'} />;
 
   return (
     <SafeAreaProvider>
       <LanguageProvider>
+        <AppFeedback key={owner} />
         <StatusBar style="dark" />
         <View style={styles.app}>
         {booting ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>{bootError ? <><Text>{bootError}</Text><Pressable onPress={() => setRetry(value => value + 1)}><Text>Thử lại</Text></Pressable></> : <ActivityIndicator color="#6C5CE7" />}</View> : <>
@@ -68,7 +80,7 @@ export default function App() {
           />
         )}
         {screen === 'permissions' && <OnboardingPermissionsScreen onDone={() => setScreen('main')} />}
-        {screen === 'main' && <MainApp onLogout={() => setScreen('auth')} />}
+        {screen === 'main' && <MainApp key={owner} onLogout={() => setScreen('auth')} />}
         </>}
         </View>
       </LanguageProvider>

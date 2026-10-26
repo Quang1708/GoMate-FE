@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { PlacePicker } from './PlacePicker';
 import { getMapsConfig, MapPlace, MapsConfig } from '../services/mapsService';
 import { useRemote } from '../services/useRemote';
@@ -10,7 +11,7 @@ import { colors } from '../theme';
 export function LocationField({ value, onChange, radiusKm, onPlaceSelected }: { value?: Coordinates | null; onChange: (point: Coordinates | null) => void; radiusKm?: number; onPlaceSelected?: (place: MapPlace) => void }) {
   const config = useRemote<MapsConfig | null>(getMapsConfig, null);
   const [searching, setSearching] = useState(false);
-  const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('');
   const lock = useRef(false);
   const locate = async () => {
     if (lock.current) return;

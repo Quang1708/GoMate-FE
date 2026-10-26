@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useFeedbackState } from '../services/feedback';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +13,7 @@ const CODE_LENGTH = 6;
 export function VerifyEmailScreen({ email, onVerified, onBack }: { email: string; onVerified: () => void; onBack: () => void }) {
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useFeedbackState('');
   const submit = async (resend = false) => {
     if (busy) return;
     setBusy(true); setFeedback('');

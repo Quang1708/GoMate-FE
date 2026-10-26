@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,7 +69,7 @@ export function BirthDateField({ value, onChange }: { value: string; onChange: (
 function BirthDateWheel({ value, onClose, onChange }: { value: string; onClose: () => void; onChange: (value: string) => void }) {
   const [today] = useState(() => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10));
   const [parts, setParts] = useState(() => { try { const [year, month, day] = birthDateIso(value).split('-').map(Number); return { day, month, year }; } catch { return { day: 1, month: 1, year: Number(today.slice(0, 4)) - 25 }; } });
-  const [error, setError] = useState('');
+  const [error, setError] = useFeedbackState('');
   const change = (patch: Partial<typeof parts>) => setParts(current => { const next = { ...current, ...patch }; return { ...next, day: Math.min(next.day, daysInMonth(next.month, next.year)) }; });
   const displayed = `${String(parts.day).padStart(2, '0')}-${String(parts.month).padStart(2, '0')}-${parts.year}`;
   return <PickerSheet title="Chọn ngày sinh" onClose={onClose}>

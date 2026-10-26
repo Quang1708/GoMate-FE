@@ -3,6 +3,41 @@
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
 
+## 2026-10-26 - Portal languages and app feedback, uploads and session isolation
+
+### Summary
+
+- Use the GoMate icon for the web favicon in exports and the running development page.
+- Add a persistent English/Vietnamese portal selector across login, business verification, campaigns, location management, staff management and Admin review. Switching language preserves form state.
+- Add the missing Google icon to native and fallback web sign-in buttons.
+- Route screen/component action errors through a shared app-owned dialog while keeping inline feedback. Simplify introduction/name validation without relaxing server limits.
+- Raise onboarding/avatar image selection to 10 MiB and align both multipart and base64 avatar APIs. Keep the user's existing Nickname placeholder edit.
+- Remount account-owned app state on identity changes, synchronize browser storage events, and reject late responses from older sessions so Match preferences/favorites cannot leak across accounts.
+- Backend now automatically completes overdue activities and sends deduplicated in-app reminders/completion notices; see the backend scheduler and lifecycle documentation.
+
+### Files changed
+
+- `App.tsx`, `app.json`, `src/services/api.ts`, `src/services/feedback.ts`, `src/services/activityService.ts`
+- `src/components/AppFeedback.tsx`, `src/components/GoogleLoginButton*.tsx`, `src/components/WebWorkspace.web.tsx`
+- Screen/component action-feedback state, including `src/screens/ProfileViews.tsx`, `ProfileScreen.tsx`, `AuthScreen.tsx`, `MainApp.tsx`, `CreateActivityScreen.tsx` and `ChatScreen.tsx`
+- `src/i18n/LanguageContext.tsx`, `src/i18n/portalTranslations.ts`, `src/gomate-portal/usePortalText.ts` and portal views
+- `tests/ui-experience.web.cjs`, `docs/DECISIONS.md`, `docs/DEVELOPMENT_LOG.md`
+
+### Verification
+
+- `npm run typecheck`: Passed.
+- `npm run lint`: Passed without warnings.
+- `node tests/ui-experience.web.cjs`: Passed against localhost:8081 with API fixtures; checks portal language persistence/form preservation, favicon, account switching with a delayed old response, activity validation popup and Google icon/feedback.
+- `npx expo export --platform web --output-dir dist`: Passed.
+- `npx expo export --platform android --output-dir dist-native`: Passed.
+- Backend focused checks: 20/20 passed for profile/avatar limits, Match isolation, lifecycle and scheduler. Expanded backend suite: 103/104 passed; the existing business-events test expects `/api/portal/options`, absent from backend HEAD.
+- `npx expo-doctor`: 20/21 passed; existing patch mismatches remain for expo, expo-location and expo-sharing.
+
+### Remaining work
+
+- Physical-device interaction and external Google OAuth were not exercised. Browser regression uses isolated API fixtures.
+- Existing backend `/api/portal/options` test mismatch and Expo patch updates remain separate follow-up work.
+
 ## 2026-10-26 - Merge tan-business into fe-ui2
 
 ### Summary

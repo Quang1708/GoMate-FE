@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useRef, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,7 +10,7 @@ import { colors } from '../theme';
 export function ProfileCoverEditor({ onBusyChange }: { onBusyChange: (busy: boolean) => void }) {
   const { profile, update } = useProfile();
   const lock = useRef(false);
-  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false), [error, setError] = useFeedbackState(''), [confirm, setConfirm] = useState(false);
   const run = async (action: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); onBusyChange(true); setError('');

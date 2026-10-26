@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,8 +12,8 @@ export function CompanionCards({ value, onChange, editable = false, onPersonChan
 }
 
 export function GroupCompanions({ activityId, editable, onSaved }: { activityId: string; editable: boolean; onSaved: () => void }) {
-  const [people, setPeople] = useState<Companion[]>([]), [version, setVersion] = useState(0), [editing, setEditing] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [retry, setRetry] = useState(0), [loading, setLoading] = useState(true);
-  useEffect(() => { let alive = true; void api<{ companions: Companion[]; version: number }>(`/activities/${activityId}/companions`).then(row => { if (alive) { setPeople(row.companions); setVersion(row.version); setError(''); setEditing(false); } }).catch(reason => { if (alive) setError(reason.message); }).finally(() => { if (alive) setLoading(false); }); return () => { alive = false; }; }, [activityId, retry]);
+  const [people, setPeople] = useState<Companion[]>([]), [version, setVersion] = useState(0), [editing, setEditing] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useFeedbackState(''), [retry, setRetry] = useState(0), [loading, setLoading] = useState(true);
+  useEffect(() => { let alive = true; void api<{ companions: Companion[]; version: number }>(`/activities/${activityId}/companions`).then(row => { if (alive) { setPeople(row.companions); setVersion(row.version); setError(''); setEditing(false); } }).catch(reason => { if (alive) setError(reason.message); }).finally(() => { if (alive) setLoading(false); }); return () => { alive = false; }; }, [activityId, retry, setError]);
   const save = async () => {
     if (busy) return; setBusy(true); setError('');
     try { const row = await api<{ companions: Companion[]; version: number }>(`/activities/${activityId}/companions`, { method: 'PATCH', body: JSON.stringify({ version, companions: people }) }); setVersion(row.version); setPeople(row.companions); setEditing(false); onSaved(); }

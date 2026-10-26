@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +13,7 @@ import { colors, layout } from '../theme';
 async function load() { const [friends, requests] = await Promise.all([listFriends(), listFriendRequests()]); return { friends, requests }; }
 export function FriendsScreen({ onBack, onChat }: { onBack: () => void; onChat: (userId: string) => Promise<void> }) {
   const remote = useRemote(load, { friends: [], requests: [] });
-  const [query, setQuery] = useState(''), [results, setResults] = useState<Friend[] | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false), [removeId, setRemoveId] = useState('');
+  const [query, setQuery] = useState(''), [results, setResults] = useState<Friend[] | null>(null), [error, setError] = useFeedbackState(''), [busy, setBusy] = useState(false), [removeId, setRemoveId] = useState('');
   const lock = useRef(false);
   const run = async (action: () => Promise<void>) => {
     if (lock.current) return;

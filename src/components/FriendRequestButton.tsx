@@ -1,3 +1,4 @@
+import { useFeedbackState } from '../services/feedback';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Text } from './LocalizedText';
@@ -8,7 +9,7 @@ import { colors } from '../theme';
 export function FriendRequestButton({ userId }: { userId: string }) {
   const loader = useCallback(() => getFriendship(userId), [userId]);
   const remote = useRemote(loader, { status: 'none' });
-  const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [error, setError] = useFeedbackState(''), [busy, setBusy] = useState(false);
   const lock = useRef(false);
   if (userId === getSession()?.user.id) return null;
   const relation = remote.data;

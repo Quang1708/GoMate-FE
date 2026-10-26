@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useFeedbackState } from '../services/feedback';
 import { useRef, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { Text } from './LocalizedText';
@@ -6,7 +8,7 @@ import { finishGoogleLogin } from '../services/googleLogin';
 import { colors } from '../theme';
 export function GoogleLoginButton({ onLogin }: { onLogin: () => void }) {
   const lock = useRef(false);
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useFeedbackState('');
   const signIn = async () => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
@@ -25,5 +27,5 @@ export function GoogleLoginButton({ onLogin }: { onLogin: () => void }) {
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không đăng nhập được Google'); }
     finally { lock.current = false; setBusy(false); }
   };
-  return <View style={{ gap: 8 }}><Pressable accessibilityRole="button" disabled={busy} onPress={() => void signIn()} style={{ padding: 14, borderRadius: 24, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}><Text>{busy ? 'Đang đăng nhập...' : 'Continue with Google'}</Text></Pressable>{error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}</View>;
+  return <View style={{ gap: 8 }}><Pressable accessibilityRole="button" disabled={busy} onPress={() => void signIn()} style={{ padding: 14, borderRadius: 24, borderWidth: 1, borderColor: colors.border, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 }}><Ionicons name="logo-google" size={22} color="#4285F4" /><Text>{busy ? 'Đang đăng nhập...' : 'Continue with Google'}</Text></Pressable>{error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}</View>;
 }
