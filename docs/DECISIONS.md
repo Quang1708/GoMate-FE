@@ -4,6 +4,23 @@ Record decisions here when they materially affect architecture, dependencies,
 security, the data model, or product behavior. Keep the newest decision at the
 top. Small implementation details belong only in `DEVELOPMENT_LOG.md`.
 
+### 2026-10-26 - Recipient-approved activity invitations and qualified lifecycle transitions
+
+- **Status:** Accepted at the user's explicit request to bind the complete user-to-user journey. Supersedes immediate friend membership and permissive lifecycle rules below.
+- **Decision:** Initial selections and host friend additions are invitations, with notifications and recipient-only accept/decline. Acceptance atomically creates `host-invited` membership and optionally converts a reserved companion seat. Pending invitations grant no chat access or guaranteed seat; preserve existing `host-added` records.
+- **Decision:** Minimum participants counts confirmed GoMate accounts including the host, excluding anonymous companions. Confirmation/start additionally require at least one approved public join request; host-added/host-invited friends do not satisfy the outside-member gate. Capacity must accommodate the minimum and retain an outside seat until a public member joins. These rules run on the server, with explicit FE blocking reasons.
+- **Decision:** Require schedule confirmation before start, recheck membership on start and use versioned updates. Invalidate confirmation when members leave or schedule/capacity/requirements change. Require every attendance record marked before manual completion. Never-started overdue activities become `expired`; running automatic completion preserves existing attendance and review eligibility.
+- **Decision:** Default discovery to all regions unless filters were explicitly saved; refresh while browsing and keep swiped IDs stable. Enforce self exclusion in API and FE. Keep friendship recipient-approved after the trip and expose it in Summary/Rating. Scope activity write quotas per authenticated account so users on one network do not share a quota.
+- **Validation:** 110 backend tests and the trip/social and lifecycle browser suites passed using separate accounts and temporary databases; TypeScript/lint/unit checks and web export passed. Existing Expo patch mismatches remain.
+
+### 2026-10-26 - Confirm participation and keep trip planning inside group chat
+
+- **Status:** Accepted at the user's request; clarified that the added step is a commitment before applying.
+- **Decision:** Show activity conditions and require an explicit checkbox before sending join requests from Match or activity details. Cancellation sends no request. This is a client confirmation, not a server consent ledger; existing API eligibility and approval remain authoritative.
+- **Decision:** Remove personal estimated-cost inputs/displays and budget filtering; preserve legacy stored costs and business offer pricing. Create/edit trip itineraries, links and Excel files through the existing group chat Plans tab; remove plans from public posts and the activity composer.
+- **Decision:** Activity age choices start at 12; zero still means unrestricted. Retain the four-step draft format, friend membership APIs and host plan permissions. Show the bottom activity gallery only for multiple photos.
+- **Decision:** Keep the embedded map and open Google Maps universal direction URLs for car/motorcycle/walking, using driving/two-wheeler/walking. Google Maps handles route availability and device location. Reference: https://developers.google.com/maps/documentation/urls/get-started.
+
 ### 2026-10-26 - Isolate account state and reconcile activity schedules
 
 - **Status:** Accepted for the requested account isolation and overdue activity behavior.

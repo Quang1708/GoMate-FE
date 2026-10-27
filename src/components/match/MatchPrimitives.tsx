@@ -2,7 +2,6 @@ import { imageUrl } from '../../services/profileService';
 import { Image, ImageBackground, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { TripPlanView } from '../TripPlanView';
 import { RouteMap } from '../RouteMap';
 import { Activity } from '../../data/activities';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -11,13 +10,12 @@ import { Text } from '../LocalizedText';
 import { PreferencesSummary } from '../ActivityChoices';
 import { BusinessIdentity } from '../BusinessIdentity';
 
-export function MatchHeader({ distance = 'Chưa có vị trí', onBack, onFilter, onSearch }: { onSearch?: () => void; distance?: string; onBack: () => void; onFilter: () => void }) {
+export function MatchHeader({ distance = 'Chưa có vị trí', onBack, onFilter }: { onSearch?: () => void; distance?: string; onBack: () => void; onFilter: () => void }) {
   return (
     <View>
       <View style={styles.header}>
         <Pressable accessibilityLabel="Quay lại" onPress={onBack} style={styles.headerButton}><Ionicons color={colors.text} name="chevron-back" size={24} /></Pressable>
         <Text style={styles.headerTitle}>Match</Text>
-        {onSearch && <Pressable accessibilityRole="button" accessibilityLabel="Tìm hoạt động" onPress={onSearch} style={styles.headerButton}><Ionicons name="search-outline" color={colors.primary} size={23} /></Pressable>}
         <Pressable accessibilityLabel="Mở bộ lọc" onPress={onFilter} style={styles.headerButton}><Ionicons color={colors.primary} name="options-outline" size={23} /></Pressable>
       </View>
       <View style={styles.contextRow}>
@@ -54,8 +52,6 @@ export function ActivityMatchCard({ preview = false, favorite = false, onFavorit
             <Meta icon="calendar-outline" text={activity.time} />
             {activity.endsAt && <Meta icon="calendar-outline" text={'Kết thúc: ' + new Date(activity.endsAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })} />}
             <Meta icon="location-outline" text={`${activity.location} • ${activity.distance}`} />
-            <Meta icon="briefcase-outline" text={activity.estimatedCost} />
-            {activity.costNote ? <Text style={styles.body}>{activity.costNote}</Text> : null}
             {activity.reservedSeats ? <Text style={styles.body}>Có {activity.reservedSeats} bạn đi cùng host trong số thành viên.</Text> : null}
           </View>
         </View>
@@ -71,9 +67,8 @@ export function ActivityMatchCard({ preview = false, favorite = false, onFavorit
             </View>
           </DetailSection>
           {activity.requirements.length > 0 && <DetailSection title="Lưu ý">{activity.requirements.map((item) => <Bullet key={item} text={item} />)}</DetailSection>}
-          <DetailSection title="Kế hoạch dự kiến"><TripPlanView activityId={activity.id} itinerary={activity.itinerary} plan={activity.plan} planLink={activity.planLink} planFile={activity.planFile} preview={preview} /></DetailSection>
           {activity.coordinates && <DetailSection title="Bản đồ địa điểm"><RouteMap point={activity.coordinates} /></DetailSection>}
-          {Boolean(activity.images?.length) && <DetailSection title="Ảnh hoạt động"><View style={[styles.photoRow, { flexWrap: 'wrap' }]}>{activity.images!.map((source, index) => <ImageBackground accessibilityLabel={`Ảnh hoạt động ${index + 1}`} imageStyle={styles.photoImage} key={index} resizeMode="cover" source={source} style={[styles.photo, { flex: undefined, flexGrow: 0, flexShrink: 0, flexBasis: '31%', width: '31%' }]} />)}</View></DetailSection>}
+          {(activity.images?.length ?? 0) > 1 && <DetailSection title="Ảnh hoạt động"><View style={[styles.photoRow, { flexWrap: 'wrap' }]}>{activity.images!.map((source, index) => <ImageBackground accessibilityLabel={`Ảnh hoạt động ${index + 1}`} imageStyle={styles.photoImage} key={index} resizeMode="cover" source={source} style={[styles.photo, { flex: undefined, flexGrow: 0, flexShrink: 0, flexBasis: '31%', width: '31%' }]} />)}</View></DetailSection>}
         </View>
       </View>
     </View>

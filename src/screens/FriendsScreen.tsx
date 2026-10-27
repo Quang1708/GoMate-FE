@@ -1,5 +1,6 @@
+import { ActivityInvitations } from '../components/ActivityInvitations';
 import { useFeedbackState } from '../services/feedback';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -14,7 +15,8 @@ async function load() { const [friends, requests] = await Promise.all([listFrien
 export function FriendsScreen({ onBack, onChat }: { onBack: () => void; onChat: (userId: string) => Promise<void> }) {
   const remote = useRemote(load, { friends: [], requests: [] });
   const [query, setQuery] = useState(''), [results, setResults] = useState<Friend[] | null>(null), [error, setError] = useFeedbackState(''), [busy, setBusy] = useState(false), [removeId, setRemoveId] = useState('');
-  const lock = useRef(false);
+  const lock = useRef(false), reload = remote.reload;
+  useEffect(() => { const timer = setInterval(() => { if (!lock.current) void reload(true); }, 10000); return () => clearInterval(timer); }, [reload]);
   const run = async (action: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
@@ -26,6 +28,7 @@ export function FriendsScreen({ onBack, onChat }: { onBack: () => void; onChat: 
   </View>;
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}><ScreenHeader title="Bạn bè GoMate" onBack={onBack} right={<Pressable accessibilityRole="button" accessibilityLabel="Làm mới bạn bè" onPress={() => void remote.reload()}><Text style={{ color: colors.primary }}>Làm mới</Text></Pressable>} />
     <ScrollView contentContainerStyle={{ padding: 18, gap: 14, maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+      <ActivityInvitations />
       <FormField label="Tìm bạn bằng tên hoặc Nickname" value={query} onChangeText={setQuery} placeholder="Nhập ít nhất 2 ký tự" /><Pressable accessibilityRole="button" disabled={busy} onPress={() => void run(async () => { setResults(await searchPeople(query.trim())); })}><Text style={{ color: colors.primary }}>{busy ? 'Đang xử lý...' : 'Tìm bạn'}</Text></Pressable>
       {error ? <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text> : null}
       {results !== null && <><Text style={{ fontSize: 18, fontWeight: '700' }}>Kết quả tìm kiếm</Text>{!results.length && <Text>Chưa tìm thấy người dùng phù hợp.</Text>}{results.map(person => row(person, person.friendshipStatus === 'accepted' ? <Text>Đã là bạn bè</Text> : person.friendshipStatus === 'pending' ? <Text>{person.incoming ? 'Có lời mời từ người này ở bên dưới' : 'Đã gửi lời mời'}</Text> : <Pressable accessibilityRole="button" accessibilityLabel={'Kết bạn với ' + person.name} disabled={busy} onPress={() => void run(async () => { await requestFriend(person.id); await remote.reload(); setResults(await searchPeople(query.trim())); })}><Text style={{ color: colors.primary }}>Kết bạn</Text></Pressable>))}</>}

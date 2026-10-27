@@ -13,7 +13,11 @@ export const getMapsConfig = () => api<MapsConfig>('/maps/config');
 export const placePredictions = async (input: string, sessionToken: string, bias?: Coordinates | null) => (await post<{ items: PlacePrediction[] }>('/maps/places/autocomplete', { input, sessionToken, ...(bias ? { bias } : {}) })).items;
 export const placeDetails = async (prediction: PlacePrediction, sessionToken: string) => ({ ...(await post<{ place: Omit<MapPlace, 'title'> }>('/maps/places/details', { id: prediction.id, sessionToken })).place, title: prediction.title });
 export const findRoute = async (origin: Coordinates, destination: Coordinates, mode: 'DRIVE' | 'WALK') => (await post<{ route: MapRoute }>('/maps/routes', { origin: { latitude: origin.latitude, longitude: origin.longitude }, destination: { latitude: destination.latitude, longitude: destination.longitude }, mode })).route;
-export const directionsUrl = (point: Coordinates, origin?: Coordinates, mode: 'DRIVE' | 'WALK' = 'DRIVE') => origin ? `https://www.openstreetmap.org/directions?engine=${mode === 'WALK' ? 'fossgis_osrm_foot' : 'fossgis_osrm_car'}&route=${origin.latitude}%2C${origin.longitude}%3B${point.latitude}%2C${point.longitude}` : `https://www.openstreetmap.org/?mlat=${point.latitude}&mlon=${point.longitude}#map=16/${point.latitude}/${point.longitude}`;
+export type DirectionsMode = 'DRIVE' | 'MOTORCYCLE' | 'WALK';
+export function directionsUrl(point: Coordinates, origin?: Coordinates, mode: DirectionsMode = 'DRIVE') {
+  const travelmode = mode === 'WALK' ? 'walking' : mode === 'MOTORCYCLE' ? 'two-wheeler' : 'driving';
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(point.latitude + ',' + point.longitude)}&travelmode=${travelmode}${origin ? '&origin=' + encodeURIComponent(origin.latitude + ',' + origin.longitude) : ''}`;
+}
 
 // Groups address selections; this token never grants authentication/access. Mapbox Geocoding bills per request.
 export function newPlacesSession() {

@@ -5,6 +5,7 @@ import { imageUrl } from './profileService';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'left' | 'removed';
 export type ActivityDto = {
+  readiness?: { confirmedParticipants: number; externalParticipants: number; minimum: number; ready: boolean; reason: string };
   business?: Activity['business'];
   memberAvatars?: { userId: string; name: string; avatarUrl?: string | null }[];
   hostRating?: number | null; hostRatingCount?: number; hostCompletedActivities?: number;
@@ -14,7 +15,7 @@ export type ActivityDto = {
   id: string; hostId: string; hostName: string; title: string; description: string; category: string;
   location: string; startsAt: string; endsAt?: string; estimatedCost: number; maxParticipants: number;
   memberCount: number; tags?: string[]; requirements?: string[]; plan?: string[]; imageUrl?: string; imageUrls?: string[];
-  distanceKm?: number | null; status?: 'published' | 'in-progress' | 'completed';
+  distanceKm?: number | null; status?: 'published' | 'in-progress' | 'completed' | 'expired';
   minParticipants?: number; participantPreferences?: ParticipantPreferences; meetingPoint?: string; registrationDeadline?: string | null;
 };
 export type JoinRequest = { id: string; userId: string; name: string; status: RequestStatus; activityId?: string; activity?: ActivityDto };
@@ -76,3 +77,7 @@ export const markAttendance = (id: string, userId: string, status: Attendance['s
 export const addActivityUpdate = (id: string, text: string) => post(`${idPath(id)}/updates`, { text });
 
 export const addActivityFriends = async (id: string, friendIds: string[], useReservedSeats = true) => (await post<{ activity: ActivityDto }>(`${idPath(id)}/members/friends`, { friendIds, useReservedSeats })).activity;
+export type ActivityInvitation = { id: string; userId: string; name: string; status: 'pending' | 'accepted' | 'declined'; activityId: string; activity: ActivityDto };
+export const listActivityInvitations = () => allPages<ActivityInvitation>('/activities/invitations');
+export const listSentActivityInvitations = async (activityId: string) => (await api<{ items: ActivityInvitation[] }>(`${idPath(activityId)}/invitations`)).items;
+export const decideActivityInvitation = async (activityId: string, invitationId: string, status: 'accepted' | 'declined') => (await api<{ activity: ActivityDto }>(`${idPath(activityId)}/invitations/${encodeURIComponent(invitationId)}`, { method: 'PATCH', body: JSON.stringify({ status }) })).activity;

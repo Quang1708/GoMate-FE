@@ -6,9 +6,9 @@ export function useRemote<T>(loader: () => Promise<T>, initial: T) {
   const [error, setError] = useState('');
   const [loadedFor, setLoadedFor] = useState(() => loader);
   const generation = useRef(0);
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (background = false) => {
     const current = ++generation.current;
-    setLoading(true); setError('');
+    if (!background) setLoading(true); setError('');
     try { const result = await loader(); if (current === generation.current) setData(result); }
     catch (reason) { if (current === generation.current) setError(reason instanceof Error ? reason.message : 'Không tải được dữ liệu'); }
     finally { if (current === generation.current) { setLoadedFor(() => loader); setLoading(false); } }

@@ -14,7 +14,7 @@ export type Activity = {
   startsAt?: string;
   endsAt?: string;
   requestStatus?: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'left' | 'removed';
-  backendStatus?: 'published' | 'in-progress' | 'completed';
+  backendStatus?: 'published' | 'in-progress' | 'completed' | 'expired';
   title: string;
   host: string;
   location: string;

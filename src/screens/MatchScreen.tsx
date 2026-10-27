@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MatchBackground } from '../components/match/MatchBackground';
 import { ActivityMatchCard, MatchActions, MatchHeader, MatchState } from '../components/match/MatchPrimitives';
 import { MatchMoreMenu, NotInterestedSheet, ReportActivitySheet, SafetySheet } from '../components/match/MatchSheets';
-import { Activity, activities } from '../data/activities';
+import { Activity } from '../data/activities';
 import { colors, layout } from '../theme';
 import { Text } from '../components/LocalizedText';
 
@@ -33,18 +33,18 @@ function isHorizontalGesture(dx: number, dy: number) {
   return Math.abs(dx) > HORIZONTAL_INTENT_DISTANCE && Math.abs(dx) > Math.abs(dy) * HORIZONTAL_INTENT_RATIO;
 }
 
-export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite, onFeedback, activityItems = activities, onFilterPress, onMatched, onBack, onSearch, state = 'ready' }: MatchScreenProps) {
+export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite, onFeedback, activityItems = [], onFilterPress, onMatched, onBack, onSearch, state = 'ready' }: MatchScreenProps) {
   const { width } = useWindowDimensions();
   const [cardHeight, setCardHeight] = useState(0);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [lastSkippedIndex, setLastSkippedIndex] = useState<number | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [lastSkippedId, setLastSkippedId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetName>(null);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [requestToast, setRequestToast] = useState(false);
   const [position] = useState(() => new Animated.ValueXY());
-  const currentActivity = activityItems[currentIndex];
-  const canUndo = lastSkippedIndex !== null && !isAnimating;
+  const currentActivity = activityItems.find(item => !dismissedIds.includes(item.id));
+  const canUndo = lastSkippedId !== null && !isAnimating;
 
   useEffect(() => {
     if (!requestToast) return;
@@ -53,17 +53,18 @@ export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite
   }, [requestToast]);
 
   const skipCurrent = useCallback(() => {
-    if (activityItems[currentIndex]) onFeedback?.(activityItems[currentIndex], 'skip');
-    setLastSkippedIndex(currentIndex);
-    setCurrentIndex((current) => current + 1);
+    if (!currentActivity) return;
+    onFeedback?.(currentActivity, 'skip');
+    setLastSkippedId(currentActivity.id);
+    setDismissedIds(current => [...current, currentActivity.id]);
     setSheet(null);
-  }, [activityItems, currentIndex, onFeedback]);
+  }, [currentActivity, onFeedback]);
 
   const requestCurrent = useCallback(async () => {
     if (!currentActivity) return;
     if (!onMatched || !await onMatched(currentActivity)) return;
-    setCurrentIndex((current) => current + 1);
-    setLastSkippedIndex(null);
+    setDismissedIds(current => [...current, currentActivity.id]);
+    setLastSkippedId(null);
     setRequestToast(true);
     setSheet(null);
   }, [currentActivity, onMatched]);
@@ -116,9 +117,9 @@ export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite
   const rotate = position.x.interpolate({ inputRange: [-width, 0, width], outputRange: ['-7deg', '0deg', '7deg'] });
 
   const undoSkip = () => {
-    if (lastSkippedIndex === null || isAnimating) return;
-    setCurrentIndex(lastSkippedIndex);
-    setLastSkippedIndex(null);
+    if (lastSkippedId === null || isAnimating) return;
+    setDismissedIds(current => current.filter(id => id !== lastSkippedId));
+    setLastSkippedId(null);
     setSheet(null);
   };
 
@@ -181,7 +182,7 @@ export function MatchScreen({ error, locationLabel, favoriteIds = [], onFavorite
       />
       <ReportActivitySheet key={currentActivity.id} activityId={currentActivity.id} onClose={() => setSheet(null)} visible={sheet === 'report'} />
       <SafetySheet onClose={() => setSheet(null)} visible={sheet === 'safety'} />
-      <NotInterestedSheet category={currentActivity.category} onCancel={() => setSheet(null)} onConfirm={() => { onFeedback?.(currentActivity, 'dislike'); setLastSkippedIndex(currentIndex); setCurrentIndex(currentIndex + 1); setSheet(null); }} visible={sheet === 'notInterested'} />
+      <NotInterestedSheet category={currentActivity.category} onCancel={() => setSheet(null)} onConfirm={() => { onFeedback?.(currentActivity, 'dislike'); setLastSkippedId(currentActivity.id); setDismissedIds(current => [...current, currentActivity.id]); setSheet(null); }} visible={sheet === 'notInterested'} />
       {requestToast && <RequestToast />}
     </SafeAreaView>
   );

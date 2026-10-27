@@ -20,7 +20,7 @@ export function AdvancedPreferences({ value, onChange, filter = false }: { value
   const [open, setOpen] = useState(false);
   const count = value.genders.length + value.languages.length + (value.minAge ? 1 : 0) + (value.maxAge ? 1 : 0);
   const patch = (fields: Partial<ParticipantPreferences>) => onChange({ ...value, ...fields });
-  const ages = [{ value: '0', label: 'Không giới hạn' }, ...Array.from({ length: 120 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} tuổi` }))];
+  const ages = [{ value: '0', label: 'Không giới hạn' }, ...Array.from({ length: 109 }, (_, index) => ({ value: String(index + 12), label: `${index + 12} tuổi` }))];
   return <View style={styles.panel}><Pressable accessibilityRole="button" accessibilityLabel="Tùy chọn nâng cao" accessibilityState={{ expanded: open }} onPress={() => setOpen(!open)}><Text style={styles.title}>Tùy chọn nâng cao {count ? `(${count})` : ''} {open ? '−' : '+'}</Text><Text style={styles.hint}>Độ tuổi, giới tính và ngôn ngữ · chọn bằng cuộn</Text></Pressable>
     {open && <View style={styles.group}><Text style={styles.hint}>{filter ? 'Nhóm không giới hạn vẫn được hiển thị. Khoảng tuổi lọc theo phần giao nhau.' : 'Để trống nếu không giới hạn. Điều kiện được đối chiếu với hồ sơ khi tham gia.'}</Text>
       <View style={{ flexDirection: 'row', gap: 12 }}><View style={{ flex: 1 }}><SelectionField label="Tuổi từ" options={ages} selected={[String(value.minAge || 0)]} onChange={values => patch({ minAge: Number(values[0] || 0) })} /></View><View style={{ flex: 1 }}><SelectionField label="Đến tuổi" options={ages} selected={[String(value.maxAge || 0)]} onChange={values => patch({ maxAge: Number(values[0] || 0) })} /></View></View>
@@ -34,7 +34,7 @@ export function AdvancedPreferences({ value, onChange, filter = false }: { value
 export function PreferencesSummary({ value }: { value?: ParticipantPreferences }) {
   if (!value || (!value.genders.length && !value.languages.length && !value.religions.length && value.alcohol === 'any' && !value.dressCode && !value.minAge && !value.maxAge)) return null;
   return <View style={styles.group}><Text style={styles.label}>Tùy chọn nhóm</Text>
-    {(value.minAge || value.maxAge) ? <Text>Độ tuổi: {value.minAge || 0}–{value.maxAge || 120}</Text> : null}
+    {(value.minAge || value.maxAge) ? <Text>Độ tuổi: {value.minAge || 12}–{value.maxAge || 120}</Text> : null}
     {value.genders.length ? <Text>Giới tính: {value.genders.map(value => genderOptions.find(([key]) => key === value)?.[1] || value).join(', ')}</Text> : null}
     {value.languages.length ? <Text>Ngôn ngữ: {value.languages.join(', ')}</Text> : null}
     {value.religions.length ? <Text>Tôn giáo: {value.religions.map(value => religionOptions.find(([key]) => key === value)?.[1] || value).join(', ')}</Text> : null}

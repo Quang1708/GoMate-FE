@@ -20,7 +20,6 @@ import { activityCategories, popularActivityCategories } from '../data/activityO
 import { ActivityDraft, publishActivityDraft, validateActivityDraft } from '../services/activityService';
 import { ActivityDraftPreview } from '../components/ActivityDraftPreview';
 import { ActivityLocationFields } from '../components/ActivityLocationFields';
-import { TripPlanEditor } from '../components/TripPlanEditor';
 import { useProfile } from '../services/ProfileContext';
 import { normalizeRegion, profileRegions } from '../data/profileOptions';
 import { ActivityDto } from '../services/activityApi';
@@ -30,7 +29,7 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 type SetField = <K extends keyof ActivityDraft>(key: K, value: ActivityDraft[K]) => void;
 type StepProps = { draft: ActivityDraft; setField: SetField };
 
-const stepNames = ['Thông tin cơ bản', 'Thời gian & địa điểm', 'Nhóm & kế hoạch', 'Xem trước bài đăng'];
+const stepNames = ['Thông tin cơ bản', 'Thời gian & địa điểm', 'Nhóm & điều kiện', 'Xem trước bài đăng'];
 
 function createInitialDraft(province = 'TP. Hồ Chí Minh'): ActivityDraft {
   return {
@@ -46,7 +45,6 @@ function createInitialDraft(province = 'TP. Hồ Chí Minh'): ActivityDraft {
   };
 }
 
-function toAmount(value: string) { const amount = Number(value.replace(/\D/g, '')); return Number.isFinite(amount) ? amount : 0; }
 
 function draftFromActivity(activity?: ActivityDto, province?: string): ActivityDraft {
   if (!activity) return createInitialDraft(province);
@@ -64,7 +62,7 @@ function draftFromActivity(activity?: ActivityDto, province?: string): ActivityD
 export function CreateActivityScreen({ onCreated, initialActivity, onCancel }: { onCreated: (activity?: ActivityDto) => void; initialActivity?: ActivityDto; onCancel?: () => void }) {
   const { profile } = useProfile();
   const defaultRegion = profileRegions.includes(normalizeRegion(profile?.location || '')) ? normalizeRegion(profile?.location || '') : 'TP. Hồ Chí Minh';
-  const [fileBusy, setFileBusy] = useState(false);
+  const fileBusy = false;
   const publishing = useRef(false);
   const scroll = useRef<ScrollView>(null);
   const [busy, setBusy] = useState(false);
@@ -149,7 +147,7 @@ export function CreateActivityScreen({ onCreated, initialActivity, onCancel }: {
       {initialActivity && <View><Text style={styles.noteText}>{draft.replacePhotos ? 'Ảnh hiện tại sẽ được xóa khi lưu.' : 'Ảnh hiện tại được giữ lại. Chọn ảnh mới để thay thế bộ ảnh.'}</Text><Pressable onPress={() => setField('replacePhotos', !draft.replacePhotos)}><Text style={styles.editText}>{draft.replacePhotos ? 'Giữ lại ảnh hiện tại' : 'Xóa bộ ảnh hiện tại'}</Text></Pressable></View>}
       {step === 1 && <BasicStep customCategory={customCategory} draft={draft} onCustomCategory={() => { setCustomCategory(true); setField('category', ''); }} onPickPhoto={pickPhoto} onPresetCategory={(category) => { setCustomCategory(false); setField('category', category); }} onRemovePhoto={(index) => setField('photos', draft.photos.filter((_, itemIndex) => itemIndex !== index))} setField={setField} />}
       {step === 2 && <WhenWhereStep draft={draft} setField={setField} onSuggestionsLayout={() => scroll.current?.scrollToEnd({ animated: true })} />}
-      {step === 3 && <View style={{ gap: 18 }}><GroupStep draft={draft} setField={setField} editing={Boolean(initialActivity)} onCompanionChange={(index, patch) => { draftRevision.current++; setDraftNotice(''); setDraft(current => ({ ...current, companions: Array.from({ length: current.reservedSeats ?? 0 }, (_, at) => ({ name: '', note: '', ...current.companions?.[at], ...(at === index ? patch : {}) })) })); }} /><FinancialStep draft={draft} setField={setField} /><View style={styles.card}><TripPlanEditor value={{ itinerary: draft.itinerary || [], planLink: draft.planLink || '', planAttachment: draft.planAttachment, planFile: draft.planFile }} onChange={patch => { draftRevision.current++; setDraftNotice(''); setDraft(current => ({ ...current, ...patch })); }} startDate={draft.date} endDate={draft.endDate || draft.date} startTime={draft.startTime} endTime={draft.endTime} onBusyChange={setFileBusy} /></View></View>}
+      {step === 3 && <View style={{ gap: 18 }}><GroupStep draft={draft} setField={setField} editing={Boolean(initialActivity)} existingMembers={initialActivity ? initialActivity.memberCount - (initialActivity.reservedSeats ?? 0) : 1} onCompanionChange={(index, patch) => { draftRevision.current++; setDraftNotice(''); setDraft(current => ({ ...current, companions: Array.from({ length: current.reservedSeats ?? 0 }, (_, at) => ({ name: '', note: '', ...current.companions?.[at], ...(at === index ? patch : {}) })) })); }} /><View style={styles.card}><FormField label="Yêu cầu tham gia" multiline value={draft.requirements} onChangeText={value => setField('requirements', value)} placeholder="Mỗi yêu cầu một dòng" /><Text>Kế hoạch chuyến đi được tạo và chỉnh sửa trong nhóm chat sau khi đăng hoạt động.</Text></View></View>}
       {step === 4 && <ActivityDraftPreview draft={draft} initialActivity={initialActivity} host={{ id: profile?.id || '', name: profile?.name || '' }} />}
 
     </View></ScrollView>
@@ -179,18 +177,9 @@ function WhenWhereStep({ draft, setField, onSuggestionsLayout }: StepProps & { o
   </View></View>;
 }
 
-function GroupStep({ draft, setField, editing, onCompanionChange }: StepProps & { editing: boolean; onCompanionChange: (index: number, patch: Partial<{ name: string; note: string }>) => void }) { return <CreateGroupFields onCompanionChange={onCompanionChange} editing={editing} draft={draft} onChange={(patch) => { for (const key of Object.keys(patch) as (keyof ActivityDraft)[]) setField(key, patch[key]!); }} />; }
-
-function FinancialStep({ draft, setField }: StepProps) {
-  const config = draft.financialConfig;
-  const setConfig = (patch: Partial<ActivityDraft['financialConfig']>) => setField('financialConfig', { ...config, ...patch });
-  return <View><StepHeading icon="wallet-outline" title="Chi phí dự kiến" note="Thông tin tham khảo để thành viên sắp xếp ngân sách." />
-    <View style={styles.card}><MoneyField label="Chi phí dự kiến / người (không bắt buộc)" onChange={(value) => setConfig({ estimatedCostPerMember: value })} value={config.estimatedCostPerMember} /><FormField label="Chi phí bao gồm / cách chia" value={draft.costNote || ''} onChangeText={value => setField('costNote', value)} multiline placeholder="Ví dụ: gồm xe và vé; ăn uống tự túc; chia đều chi phí thực tế." /><Text style={styles.summaryText}>Để 0 nếu miễn phí. Đây là dự toán tham khảo cho mỗi người.</Text></View>
-  </View>;
-}
+function GroupStep({ draft, setField, editing, existingMembers, onCompanionChange }: StepProps & { existingMembers: number; editing: boolean; onCompanionChange: (index: number, patch: Partial<{ name: string; note: string }>) => void }) { return <CreateGroupFields existingMembers={existingMembers} onCompanionChange={onCompanionChange} editing={editing} draft={draft} onChange={(patch) => { for (const key of Object.keys(patch) as (keyof ActivityDraft)[]) setField(key, patch[key]!); }} />; }
 
 function StepHeading({ icon, title, note }: { icon: IconName; title: string; note: string }) { return <View style={styles.stepHeading}><View style={styles.stepIcon}><Ionicons color={colors.primary} name={icon} size={23} /></View><View style={styles.stepCopy}><Text style={styles.stepTitle}>{title}</Text><Text style={styles.stepNote}>{note}</Text></View></View>; }
-function MoneyField({ label, onChange, value }: { label: string; onChange: (value: number) => void; value?: number }) { return <FormField icon="cash-outline" keyboardType="number-pad" label={label} onChangeText={(text) => onChange(toAmount(text))} placeholder="0đ" value={value ? value.toLocaleString('vi-VN') : ''} />; }
 
 const styles = StyleSheet.create({
   footerShell: { backgroundColor: colors.surface, paddingTop: 8 },

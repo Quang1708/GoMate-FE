@@ -1,3 +1,5 @@
+import { FriendRequestButton } from '../components/FriendRequestButton';
+import { getSession } from '../services/api';
 import { useCallback } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,13 +9,13 @@ import { Text } from '../components/LocalizedText';
 import { GradientButton } from '../components/GradientButton';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Activity } from '../data/activities';
-import { getActivity, listAttendance, listUpdates } from '../services/activityApi';
+import { getActivity, listAttendance, listUpdates, listMembers } from '../services/activityApi';
 import { useRemote } from '../services/useRemote';
 import { RemoteState } from '../components/RemoteState';
 import { colors, layout, radii } from '../theme';
 
 export function ActivitySummaryScreen({ activity, onBack, onRate }: { activity: Activity; onBack: () => void; onRate: () => void }) {
-  const loader = useCallback(async () => { const [current, attendance, updates] = await Promise.all([getActivity(activity.id), listAttendance(activity.id), listUpdates(activity.id)]); return { current, attendance, updates }; }, [activity.id]);
+  const loader = useCallback(async () => { const [current, attendance, updates, members] = await Promise.all([getActivity(activity.id), listAttendance(activity.id), listUpdates(activity.id), listMembers(activity.id)]); return { current, attendance, updates, members }; }, [activity.id]);
   const remote = useRemote(loader, null);
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -25,8 +27,8 @@ export function ActivitySummaryScreen({ activity, onBack, onRate }: { activity: 
           <RemoteState {...remote} onRetry={remote.reload} />
           {remote.data && <>
             <View style={styles.stats}><Stat label="Có mặt / đến muộn" value={String(remote.data.attendance.filter(item => ['present', 'late'].includes(item.status)).length)} /><View style={styles.divider} /><Stat label="Cập nhật" value={String(remote.data.updates.length)} /><View style={styles.divider} /><Stat label="Ảnh" value={String(activity.images?.length || 0)} /></View>
-            <View style={styles.card}><Text style={styles.cardTitle}>Chi phí dự kiến</Text><SummaryRow label="Mỗi người" value={activity.estimatedCost} /><Text>Chi phí tham khảo khi tạo hoạt động.</Text></View>
             {Boolean(activity.images?.length) && <View style={styles.card}><Text style={styles.cardTitle}>Ảnh hoạt động</Text><ScrollView horizontal contentContainerStyle={{ gap: 8 }}>{activity.images!.map((source, index) => <Image key={index} source={source} style={{ width: 140, height: 100, borderRadius: 14 }} />)}</ScrollView></View>}
+            <View style={styles.card}><Text style={styles.cardTitle}>Kết bạn với người đồng hành</Text>{remote.data.members.filter(member => member.userId !== getSession()?.user.id && remote.data!.attendance.some(item => item.userId === member.userId && ['present', 'late'].includes(item.status))).map(member => <View key={member.userId} style={{ gap: 10, paddingVertical: 12 }}><Text>{member.name}</Text><FriendRequestButton userId={member.userId} /></View>)}</View>
           </>}
           <GradientButton label="Đánh giá trải nghiệm" onPress={onRate} trailing={<Ionicons color={colors.white} name="star" size={18} />} />
         </View>
@@ -36,7 +38,6 @@ export function ActivitySummaryScreen({ activity, onBack, onRate }: { activity: 
 }
 
 function Stat({ label, value }: { label: string; value: string }) { return <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>; }
-function SummaryRow({ label, value, success = false }: { label: string; value: string; success?: boolean }) { return <View style={styles.summaryRow}><Text style={styles.summaryLabel}>{label}</Text><Text style={[styles.summaryValue, success && styles.summarySuccess]}>{value}</Text></View>; }
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },

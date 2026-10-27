@@ -3,6 +3,89 @@
 This file records completed development work. Keep the newest entry at the top
 and follow `templates/development-log-entry.md`.
 
+## 2026-10-26 - Allow the Expo web fallback port through backend CORS
+
+### Summary
+
+- Add explicit localhost/127.0.0.1 origins for port 8082 to backend defaults, the example environment and local CORS configuration. Preserve the existing allowlist; untrusted origins remain blocked.
+- Restart the local backend so the browser on 8082 uses the updated configuration.
+
+### Files changed
+
+- BE: src/config/env.js, .env.example, local .env (untracked), tests/app.test.js, README.md.
+- FE/BE development logs.
+
+### Verification
+
+- BE node --test tests/app.test.js: Passed, 5 tests, including 8082 CORS/preflight and rejection of an untrusted origin.
+- Running BE GET /api/auth/google/config with Origin http://localhost:8082: HTTP 200 and matching Access-Control-Allow-Origin.
+- Running BE OPTIONS /api/auth/login: HTTP 204 and matching allowed origin.
+- FE checks not repeated: no FE implementation or dependencies changed.
+
+### Remaining work
+
+- None for the reported CORS failure; reload the browser page.
+
+## 2026-10-26 - Enforce the cross-account activity and friendship journey
+
+### Summary
+
+- Refresh Match on entry/every 10 seconds without resetting swiped cards; remove mock fallback and implicit profile-region restriction. Keep self-hosted posts out of discovery and omit empty search queries.
+- Replace immediate host-added friends with notified invitations requiring recipient acceptance. Pending invitations consume no seats or chat access; show decisions in Friends/Notifications and invitation status to the host.
+- Require the configured minimum of confirmed accounts (including host, excluding anonymous companions), at least one approved public joiner, and a confirmed schedule before starting. Reserve enough account capacity and one outside-member place; API version checks prevent concurrent overbooking/stale transitions.
+- Require complete attendance marking before manual finish; add friend actions to Summary/Rating. Never-started overdue activities expire without becoming completed/rateable.
+- Restore the missing portal category-options endpoint encountered by the full backend suite and isolate activity write quotas by authenticated account.
+
+### Files changed
+
+- Added `src/components/ActivityInvitations.tsx`; updated activity creation/group/invite/lifecycle/management/plan controls, Summary/Rating/Friends/Notifications/Match/MainApp/Search, `activityApi.ts`, `activityService.ts`, `useRemote.ts` and activity types.
+- Updated `tests/activity-lifecycle.web.cjs`, `tests/trip-social.web.cjs`, `tests/activity-input.test.cjs`.
+- Companion BE changes: activity readiness helper, invitation persistence/endpoints, discovery/validation/scheduler rules, portal options, `tests/user-journey.test.js`, existing contract tests and `docs/activity-participation.md`.
+- Updated `docs/DECISIONS.md` and both repositories' development logs.
+
+### Verification
+
+- BE `node --test`: Passed, 110 tests. Covers five identities, self exclusion, cross-account search, private consent, forbidden impersonation, no access before acceptance, minimum/outside-member gates, stale schedules, simultaneous acceptance/start, attendance, rating eligibility, friendship approval and expiry.
+- `npm run test:trip:web`: Passed against temporary real BE/MongoDB. Includes activity creation in one browser while another already browses Match, invitation acceptance, draft restore, chat and reserved-seat conversion after consent.
+- `npm run test:lifecycle:web`: Passed with independent host/invitee/public-joiner browser sessions. Includes disabled host actions, Match commitment/application, approval, group chat, schedule edits/confirmation, attendance, completion, rating, a targeted post-trip friend request/acceptance and expired UI.
+- `npm run typecheck`, `npm run lint`, `node --test tests/activity-input.test.cjs` (2 tests), web export with `EXPO_PUBLIC_API_BASE_URL=/api`: Passed. Lint has no warnings.
+- `npx expo-doctor`: 17/18 passed; existing patch mismatches remain for expo 57.0.30, expo-location 57.0.21 and expo-sharing 57.0.23.
+- Reviewed FE/BE diffs and `git diff --check`; no generated exports or unrelated local changes included. Tests use cached MongoDB 8.2.6, isolated from application data.
+
+### Remaining work
+
+- Native-device verification and existing Expo patch alignment remain outstanding. Deploy/restart the matching FE and BE together; existing host-added memberships are preserved, and legacy groups may need capacity/companions adjusted to meet the new start rules.
+
+## 2026-10-26 - Participation commitments, verification, friends and group plans
+
+### Summary
+
+- Require a participation commitment before sending a join request from Match or activity details. Add Friends to Profile and update chat action icons.
+- Support six-digit verification paste/autofill, incomplete-code prevention and narrow-screen scrolling. Save the pending multi-select choice on Done; offer activity ages from 12 and validate age ranges.
+- Keep capacity above existing members, companions and selected friends; allow multi-digit entry without premature clamping.
+- Remove personal cost UI/budget filters and public trip plans. Create/edit plans through group chat; preserve legacy data and business pricing. Hide the bottom gallery for single photos and remove Match search.
+- Open Google Maps car, motorcycle or walking directions from the embedded map.
+
+### Files changed
+
+- Added `src/components/JoinConfirmation.tsx`, `tests/activity-input.test.cjs`.
+- Updated `CreateActivityScreen`, `ActivityDetailScreen`, `ActivitySearchScreen`, `ActivitySummaryScreen`, `FilterScreen`, `MainApp`, `MessagesScreen`, `ProfileViews`, `VerifyEmailScreen`.
+- Updated activity/group/preview cards, number/selection/age controls, `PlanOverview`, `RouteMap`, chat actions, `activityService.ts`, `mapsService.ts`.
+- Updated `tests/trip-social.web.cjs` and `docs/DECISIONS.md`.
+
+### Verification
+
+- `npm run typecheck`: Passed.
+- `npm run lint`: Passed, no warnings.
+- `node --test tests/activity-input.test.cjs`: Passed (2 tests: Google direction modes/coordinates and activity age/capacity validation).
+- `EXPO_PUBLIC_API_BASE_URL=/api npx expo export --platform web`: Passed. Cleared Metro cache when switching from the configured local API URL for integration checks.
+- `npm run test:trip:web`: Passed with cached MongoDB 8.2.6. Covers six-digit paste, incomplete-code guard, 320px verification layout, profile Friends navigation, friendship acceptance, draft preference restoration, single-photo gallery suppression, commitment cancellation/acceptance, group chat/files, host-only plan editing and Excel download; no browser runtime errors.
+- `npx expo-doctor`: 17/18 passed; existing patch mismatches: expo 57.0.30 (expected ~57.0.31), expo-location 57.0.21 (~57.0.22), expo-sharing 57.0.23 (~57.0.24). Retried with network access after initial sandbox network failure.
+
+### Remaining work
+
+- Physical-device keyboard/autofill and Google Maps app handoff remain unverified. Existing Expo patch alignment remains a dependency follow-up.
+
 ## 2026-10-26 - Portal languages and app feedback, uploads and session isolation
 
 ### Summary

@@ -48,15 +48,10 @@ export const defaultActivityFilters: ActivityFilters = {
 };
 
 type FilterScreenProps = { saving?: boolean; saveError?: string; initialFilters?: ActivityFilters; onApply: (filters: ActivityFilters) => void; onClose: () => void };
-const budgets = [0, 100000, 300000, 500000, 1000000, 2000000];
 const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const periods = ['Sáng', 'Chiều', 'Tối'];
 
-function moneyLabel(value: number) {
-  if (value === 0) return '0đ';
-  if (value >= 1000000) return `${value / 1000000} triệu`;
-  return `${value / 1000}k`;
-}
+
 
 export function FilterScreen(props: FilterScreenProps) { return <FilterSheet {...props} />; }
 
@@ -105,10 +100,7 @@ export function FilterSheet({ saving = false, saveError, initialFilters = defaul
         </View>
       </FilterSection>
 
-      <FilterSection icon="wallet-outline" subtitle="Chi phí dự kiến cho mỗi người" title="Khoảng chi phí">
-        <SelectionField label="Chi phí từ" options={budgets.map(value => ({ value: String(value), label: moneyLabel(value) }))} selected={[String(filters.minBudget)]} onChange={values => setFilters(current => ({ ...current, minBudget: Number(values[0] || 0), maxBudget: Math.max(current.maxBudget, Number(values[0] || 0)) }))} />
-        <SelectionField label="Chi phí đến" options={budgets.map(value => ({ value: String(value), label: value === 2000000 ? 'Không giới hạn' : moneyLabel(value) }))} selected={[String(filters.maxBudget)]} onChange={values => setFilters(current => ({ ...current, maxBudget: Number(values[0] || 0), minBudget: Math.min(current.minBudget, Number(values[0] || 0)) }))} />
-      </FilterSection>
+
 
       <FilterSection icon="people-outline" subtitle="Lọc theo sức chứa của nhóm" title="Số lượng thành viên">
         <SelectionField label="Nhóm có tối thiểu" options={[{ value: '0', label: 'Bất kỳ' }, ...Array.from({ length: 999 }, (_, index) => ({ value: String(index + 2), label: `${index + 2} người` }))]} selected={[String(filters.minimumCapacity)]} onChange={values => setFilters(current => ({ ...current, minimumCapacity: Number(values[0] || 0) }))} />

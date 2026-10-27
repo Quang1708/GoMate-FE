@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../components/LocalizedText';
 import { GradientButton } from '../components/GradientButton';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { TripPlanView } from '../components/TripPlanView';
 import { RouteMap } from '../components/RouteMap';
 import { BusinessIdentity } from '../components/BusinessIdentity';
 import { Activity } from '../data/activities';
@@ -38,7 +37,6 @@ export function ActivityDetailScreen({ activity, error, isHost = false, onBack, 
             <Info icon="calendar-outline" label="Thời gian" value={activity.time} />
             <Info icon="location-outline" label="Địa điểm" value={activity.location} />
             <Info icon="navigate-outline" label="Khoảng cách" value={activity.distance} />
-            <Info icon="wallet-outline" label="Chi phí dự kiến" value={activity.estimatedCost} />
           </View>
 
           {activity.coordinates && <RouteMap point={activity.coordinates} />}
@@ -55,6 +53,7 @@ export function ActivityDetailScreen({ activity, error, isHost = false, onBack, 
           <Section title={`Thành viên (${activity.members})`}><Text style={styles.body}>Tối thiểu {activity.minParticipants ?? 2} thành viên, tính cả host.</Text></Section>
           {activity.meetingPoint ? <Section title="Điểm tập trung"><Text style={styles.body}>{activity.meetingPoint}</Text></Section> : null}
           {activity.participantPreferences && <Section title="Tùy chọn nhóm">
+            {(activity.participantPreferences.minAge || activity.participantPreferences.maxAge) ? <Bullet text={`Độ tuổi: ${activity.participantPreferences.minAge || 12}–${activity.participantPreferences.maxAge || 120}`} /> : null}
             {activity.participantPreferences.genders.length ? <Bullet text={`Giới tính: ${activity.participantPreferences.genders.map(value => genderOptions.find(([key]) => key === value)?.[1] || value).join(', ')}`} /> : null}
             {activity.participantPreferences.languages.length ? <Bullet text={`Ngôn ngữ: ${activity.participantPreferences.languages.join(', ')}`} /> : null}
             {activity.participantPreferences.religions.length ? <Bullet text={`Tôn giáo: ${activity.participantPreferences.religions.map(value => religionOptions.find(([key]) => key === value)?.[1] || value).join(', ')}`} /> : null}
@@ -64,7 +63,6 @@ export function ActivityDetailScreen({ activity, error, isHost = false, onBack, 
           <Section title="Yêu cầu">
             {activity.requirements.map((item) => <Bullet key={item} text={item} />)}
           </Section>
-          <Section title="Kế hoạch dự kiến"><TripPlanView activityId={activity.id} itinerary={activity.itinerary} plan={activity.plan} planLink={activity.planLink} planFile={activity.planFile} /></Section>
           <GradientButton disabled={blocked} label={blocked ? 'Hoạt động không còn nhận thành viên' : activity.requestStatus === 'pending' ? 'Hủy yêu cầu tham gia' : activity.requestStatus === 'approved' ? 'Mở nhóm hoạt động' : isHost ? 'Quản lý hoạt động' : 'Gửi yêu cầu tham gia'} onPress={onPrimary} style={styles.cta} trailing={<Ionicons color={colors.white} name={isHost ? 'settings-outline' : 'heart'} size={19} />} />
         </View>
       </ScrollView>

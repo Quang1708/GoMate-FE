@@ -131,11 +131,11 @@ export function ProfilePreview({ profile }: { profile: UserProfile }) {
 }
 function InfoLine({ icon, text }: { icon: IconName; text: string }) { return text ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><Ionicons name={icon} size={20} color={colors.primary} /><Text style={{ flex: 1 }}>{text}</Text></View> : null; }
 
-export function UserProfileScreen({ onEdit, onPreview, onVerification, onReviews, onMyActivities, onNotifications, onSettings }: { onEdit: () => void; onPreview: () => void; onVerification: () => void; onReviews: () => void; onMyActivities: () => void; onNotifications: () => void; onSettings: () => void }) {
+export function UserProfileScreen({ onEdit, onPreview, onVerification, onReviews, onMyActivities, onNotifications, onSettings, onFriends }: { onEdit: () => void; onPreview: () => void; onVerification: () => void; onReviews: () => void; onMyActivities: () => void; onFriends: () => void; onNotifications: () => void; onSettings: () => void }) {
   const remote = useProfile(), profile = remote.profile;
   const menu: { label: string; icon: IconName; action: () => void }[] = [
     { label: 'Xác minh tài khoản', icon: 'shield-checkmark-outline', action: onVerification }, { label: 'Điểm đánh giá của tôi', icon: 'star-outline', action: onReviews },
-    { label: 'Hoạt động của tôi', icon: 'calendar-outline', action: onMyActivities }, { label: 'Thông báo', icon: 'notifications-outline', action: onNotifications }, { label: 'Cài đặt', icon: 'settings-outline', action: onSettings },
+    { label: 'Bạn bè', icon: 'people-outline', action: onFriends }, { label: 'Hoạt động của tôi', icon: 'calendar-outline', action: onMyActivities }, { label: 'Thông báo', icon: 'notifications-outline', action: onNotifications }, { label: 'Cài đặt', icon: 'settings-outline', action: onSettings },
   ];
   return <ScrollView contentContainerStyle={styles.page}><Text style={styles.title}>Hồ sơ của tôi</Text><RemoteState loading={remote.loading} error={remote.error} onRetry={remote.reload} />
     {profile && !remote.loading && !remote.error && <>
@@ -144,7 +144,7 @@ export function UserProfileScreen({ onEdit, onPreview, onVerification, onReviews
         <Text style={styles.note}>{profile.bio || 'Chia sẻ một chút về bạn với người đồng hành.'}</Text>
         <View style={{ flexDirection: 'row', gap: 10 }}>{([{ label: 'Chỉnh sửa hồ sơ', icon: 'create-outline', action: onEdit }, { label: 'Xem trước hồ sơ', icon: 'eye-outline', action: onPreview }] as const).map(item => <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} onPress={item.action} style={{ flex: 1, backgroundColor: colors.primarySoft, borderRadius: 14, padding: 12, alignItems: 'center', gap: 7 }}><Ionicons name={item.icon} size={20} color={colors.primary} /><Text style={[styles.link, { textAlign: 'center' }]}>{item.label}</Text></Pressable>)}</View>
       </View>
-      <View style={styles.menu}>{menu.map(item => <Pressable accessibilityRole="button" key={item.label} onPress={item.action} style={styles.menuRow}><View style={styles.menuIcon}><Ionicons name={item.icon} size={22} color={colors.primary} /></View><Text style={styles.menuLabel}>{item.label}</Text><Ionicons name="chevron-forward" size={18} color={colors.textMuted} /></Pressable>)}</View>
+      <View style={styles.menu}>{menu.map(item => <Pressable accessibilityRole="button" accessibilityLabel={item.label} key={item.label} onPress={item.action} style={styles.menuRow}><View style={styles.menuIcon}><Ionicons name={item.icon} size={22} color={colors.primary} /></View><Text style={styles.menuLabel}>{item.label}</Text><Ionicons name="chevron-forward" size={18} color={colors.textMuted} /></Pressable>)}</View>
     </>}
   </ScrollView>;
 }

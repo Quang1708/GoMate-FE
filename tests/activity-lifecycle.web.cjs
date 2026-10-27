@@ -22,7 +22,8 @@ const be = name => import(pathToFileURL(beRoot + '/src/' + name + '.js').href);
     const user = await auth.createUser({ name, email: `lifecycle-ui${index}@example.com`, passwordHash }); users.push(user);
     await db.collection('users').updateOne({ id: user.id }, { $set: { email_verified: true, birthDate: '2000-01-01', gender: 'undisclosed', location: 'Hà Nội', bio: 'Lifecycle test', interests: ['Cà phê'], languages: ['Tiếng Việt'] } });
   }
-  const activity = await activities.create({ title: 'Lifecycle UI Meetup', description: 'A group with two initial account members', category: 'Cà phê', location: 'Hà Nội', meetingPoint: 'Cổng chính', startsAt: new Date(Date.now() + 2 * 86400000), endsAt: new Date(Date.now() + 2 * 86400000 + 7200000), estimatedCost: 0, maxParticipants: 6, initialMembers: [users[1], users[2]] }, users[0]);
+  for (const index of [1, 2]) { const request = await auth.friendRequest(users[0].id, users[index].id); await auth.decideFriend(users[index].id, request.id, 'accepted'); }
+  const activity = await activities.create({ title: 'Lifecycle UI Meetup', description: 'A group with two initial account members', category: 'Cà phê', location: 'Hà Nội', meetingPoint: 'Cổng chính', startsAt: new Date(Date.now() + 2 * 86400000), endsAt: new Date(Date.now() + 2 * 86400000 + 7200000), estimatedCost: 0, minParticipants: 4, maxParticipants: 6, initialMembers: [users[1], users[2]] }, users[0]);
   const conversation = await chat.create(users[0].id, { type: 'group', activityId: activity.id });
   const server = createApp(readConfig({}), { authRepository: auth, activityRepository: activities, chatRepository: chat }).listen(0, '127.0.0.1'); await once(server, 'listening');
   const base = 'http://127.0.0.1:' + server.address().port, errors = [];
@@ -45,7 +46,25 @@ const be = name => import(pathToFileURL(beRoot + '/src/' + name + '.js').href);
       await page.goto(base + '/#/auth/login'); await page.getByLabel('Email', { exact: true }).fill(`lifecycle-ui${index}@example.com`); await page.getByLabel('Mật khẩu', { exact: true }).fill('123456'); await click(page, 'Đăng nhập'); await page.getByText(users[index].name, { exact: false }).first().waitFor({ state: 'visible' });
     };
     await login(host, 0); await login(member, 1); await login(joiner, 3);
-    assert.equal((await call(joiner, `/activities/${activity.id}/join-requests`, 'POST', {})).status, 201);
+    const groupBefore = await activities.get(activity.id);
+    assert.equal(groupBefore.memberCount, 1);
+    await member.goto(base+'/#/app/profile'); await member.getByRole('button',{name:'Bạn bè',exact:true}).click();
+    await member.getByRole('button',{name:'Đồng ý tham gia '+activity.title,exact:true}).click();
+    await member.getByRole('button',{name:'Đồng ý tham gia '+activity.title,exact:true}).waitFor({state:'hidden'});
+    // Accept the second seeded friend's invitation through its own authenticated account.
+    const second = await browser.newPage(); await login(second,2); await second.goto(base+'/#/app/messages/friends');
+    await second.getByRole('button',{name:'Đồng ý tham gia '+activity.title,exact:true}).click(); await second.getByRole('button',{name:'Đồng ý tham gia '+activity.title,exact:true}).waitFor({state:'hidden'}); await second.close();
+    assert.equal((await activities.get(activity.id)).memberCount,3);
+    assert.equal((await call(host,'/activities/'+activity.id+'/start','POST',{})).status,409);
+    await host.goto(base+'/#/app/home/activityDetail/'+activity.id); await click(host,'Quản lý hoạt động');
+    assert.equal(await host.getByRole('button',{name:'Chốt lịch đi',exact:true}).isDisabled(),true);
+    assert.equal((await call(joiner, '/activities?q=Lifecycle')).body.items.some(row=>row.id===activity.id),true);
+    assert.equal((await call(host, '/activities?q=Lifecycle')).body.items.some(row=>row.id===activity.id),false);
+    await joiner.goto(base+'/#/app/match/discover'); await visible(joiner,'Lifecycle UI Meetup');
+    await joiner.getByLabel('Gửi yêu cầu tham gia',{exact:true}).click(); await visible(joiner,'Cam kết tham gia');
+    await joiner.getByRole('checkbox',{name:'Tôi đồng ý với cam kết tham gia',exact:true}).click(); await click(joiner,'Xác nhận và gửi yêu cầu');
+    await visible(joiner,'Đã gửi yêu cầu tham gia');
+
     const groupUrl = base + '/#/app/messages/chat/' + conversation.id;
     await host.goto(groupUrl); await notice(host, 'Nhóm đang lên kế hoạch');
     await host.getByRole('tab', { name: 'Quản lý', exact: true }).click(); await visible(host, 'Bước tiếp theo của host');
@@ -86,7 +105,7 @@ const be = name => import(pathToFileURL(beRoot + '/src/' + name + '.js').href);
     await host.getByRole('tab', { name: 'Quản lý', exact: true }).click(); await host.getByRole('button', { name: 'Bắt đầu hoạt động', exact: true }).click(); await click(host, 'Để sau'); assert.equal((await activities.get(activity.id)).status, 'published');
     await host.getByRole('button', { name: 'Bắt đầu hoạt động', exact: true }).click(); await click(host, 'Xác nhận');
     await visible(host, 'Điểm danh (0/4)'); await noTimeline(host);
-    await click(host, 'Kết thúc hoạt động'); await visible(host, 'Còn 4 người chưa điểm danh. Họ sẽ không thể đánh giá hoạt động.'); await click(host, 'Tiếp tục hoạt động');
+    assert.equal(await host.getByRole('button',{name:'Kết thúc hoạt động',exact:true}).isDisabled(),true);
     await host.getByRole('button', { name: 'Lọc điểm danh: Chưa điểm danh', exact: true }).click();
     await host.getByRole('button', { name: `Điểm danh ${users[0].name}: Có mặt`, exact: true }).click(); await visible(host, 'Điểm danh (1/4)');
     assert.equal(await host.getByRole('button', { name: `Điểm danh ${users[0].name}: Có mặt`, exact: true }).count(), 0);
@@ -103,9 +122,22 @@ const be = name => import(pathToFileURL(beRoot + '/src/' + name + '.js').href);
     await click(member, 'Đánh giá trải nghiệm'); await member.getByLabel('Trải nghiệm: 5 sao', { exact: true }).click(); await member.getByLabel('Lifecycle Host: 4 sao', { exact: true }).click();
     await member.getByLabel('Nhận xét (không bắt buộc)', { exact: true }).fill('Lịch hẹn và các bước rất rõ ràng'); await click(member, 'Gửi đánh giá'); await visible(member, 'Cảm ơn bạn đã chia sẻ!');
     assert.equal(await db.collection('activity_ratings').countDocuments({ authorId: users[1].id }), 1);
+    // A real post-trip friend request and recipient acceptance, without auto-friending.
+    await member.getByText(users[3].name,{exact:true}).locator('..').getByRole('button',{name:'Gửi lời mời kết bạn',exact:true}).click();
+    await visible(member,'Đã gửi lời mời kết bạn');
+    await joiner.goto(base+'/#/app/messages/friends');
+    await joiner.getByRole('button',{name:'Chấp nhận '+users[1].name,exact:true}).click();
+    await visible(joiner,'Bạn bè (1)');
+
     await host.screenshot({ path: join(artifacts, 'host-summary-390.png'), fullPage: true });
     await host.goto(groupUrl); await notice(host, 'Hoạt động đã kết thúc'); await host.getByRole('tab', { name: 'Quản lý', exact: true }).click(); await phase(host, 'Đã kết thúc');
     console.log('PASS host-management-only timeline, chat notices for both roles, schedule reset, responsive composer, attendance, completion and rating through Plans');
+    const expired = await activities.create({ title: 'Expired without starting', description: 'Never started', category: 'Cà phê', location: 'Hà Nội', startsAt: new Date(Date.now()+86400000), endsAt: new Date(Date.now()+93600000), estimatedCost: 0, minParticipants: 2, maxParticipants: 4 }, users[0]);
+    await db.collection('activities').updateOne({id:expired.id},{$set:{status:'expired'}});
+    await host.goto(base+'/#/app/home/group/'+expired.id); await visible(host,'Hoạt động đã hết hạn');
+    await host.getByRole('tab',{name:'Quản lý',exact:true}).click(); await visible(host,'ĐÃ HẾT HẠN');
+    assert.equal(await host.getByRole('button',{name:'Bắt đầu hoạt động',exact:true}).count(),0);
+    console.log('PASS expiry has no start action or fake completion');
     assert.deepEqual(errors, []); console.log('PASS no browser runtime errors');
   } catch (error) {
     for (const [name, page] of [['host', host], ['member', member]]) if (page) { console.log(name, page.url(), (await page.locator('body').innerText()).slice(0, 4500)); await page.screenshot({ path: join(artifacts, name + '-failure.png'), fullPage: true }).catch(() => {}); }

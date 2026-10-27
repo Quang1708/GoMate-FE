@@ -37,7 +37,7 @@ export function SwipeActivityCard({ activity, height, fullScreen = false }: Swip
               <Meta icon="calendar-outline" text={activity.time} />
               <Meta icon="location-outline" text={activity.location} />
               <Meta icon="people-outline" text={`${activity.members} ${language === 'vi' ? 'thành viên' : 'members'}`} />
-              <Meta icon="wallet-outline" text={activity.estimatedCost} />
+              {activity.organizerType === 'business' && <Meta icon="wallet-outline" text={activity.estimatedCost} />}
             </View>
           </View>
         </LinearGradient>

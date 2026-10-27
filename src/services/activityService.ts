@@ -89,7 +89,11 @@ export function validateActivityDraft(draft: ActivityDraft, step: number) {
   }
   if (step === 3) {
     const min = Number(draft.minParticipants || 2), max = Number(draft.maxParticipants || 1000);
-    if (!Number.isInteger(draft.reservedSeats ?? 0) || (draft.reservedSeats ?? 0) < 0 || 1 + (draft.reservedSeats ?? 0) + (draft.initialFriendIds?.length ?? 0) > max) throw new Error('Số người có sẵn, tính cả host, không được vượt sức chứa tối đa.');
+    if (max - (draft.reservedSeats ?? 0) < min) throw new Error('Cần chừa đủ chỗ cho số tài khoản tối thiểu; người đi cùng ngoài GoMate không tính vào điều kiện bắt đầu.');
+    if (!Number.isInteger(draft.reservedSeats ?? 0) || (draft.reservedSeats ?? 0) < 0 || 1 + (draft.reservedSeats ?? 0) > max) throw new Error('Số người có sẵn, tính cả host, không được vượt sức chứa tối đa.');
+    const preferences = draft.participantPreferences;
+    if (preferences && [preferences.minAge, preferences.maxAge].some(age => age !== undefined && age !== 0 && (!Number.isInteger(age) || age < 12 || age > 120))) throw new Error('Độ tuổi tham gia cần từ 12 đến 120.');
+    if (preferences?.minAge && preferences.maxAge && preferences.minAge > preferences.maxAge) throw new Error('Tuổi từ không được lớn hơn đến tuổi.');
     if (![min, max].every(value => Number.isInteger(value) && value >= 2 && value <= 1000) || min > max) throw new Error('Số thành viên cần từ 2 đến 1000; tối thiểu không được lớn hơn tối đa.');
   }
   if (step === 4) {
